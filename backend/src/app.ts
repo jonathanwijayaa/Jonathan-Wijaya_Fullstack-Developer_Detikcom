@@ -51,4 +51,10 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+app.get("/", (_req, res) => {
+  res.json({
+    message: "Detikcom Attendance API is running",
+    status: "OK",
+  });
+});
 export default app;
