@@ -227,15 +227,6 @@ export default function AttendanceReport() {
     },
   ];
 
-  const firstRow =
-    pagination.total === 0
-      ? 0
-      : (pagination.page - 1) * pagination.limit + 1;
-
-  const lastRow = Math.min(
-    pagination.page * pagination.limit,
-    pagination.total
-  );
   const [downloading, setDownloading] = useState(false);
 
 async function downloadPDF() {
