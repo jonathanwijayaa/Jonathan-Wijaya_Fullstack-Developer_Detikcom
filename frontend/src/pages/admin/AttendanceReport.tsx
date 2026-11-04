@@ -1,3 +1,3 @@
-export default function InternManagement() {
-  return <div>Intern Management</div>;
+export default function AttendanceReport() {
+  return <div>Attendance Report</div>;
 }
