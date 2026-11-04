@@ -159,6 +159,23 @@ Akun untuk pengujian aplikasi dapat menggunakan kredensial berikut:
 
 *Kredensial demo disediakan secara terpisah untuk keperluan pengujian.*
 
+## 9. Tampilan
+
+### Login
+![Halaman Login](login.png)
+
+### Admin Dashboard
+![Halaman Admin Dashboard](adminDashboard.png)
+
+### Admin Intern Management
+![Halaman Admin Intern Management](adminInternManagement.png)
+
+### Admin Attendance Report
+![Halaman Admin Attendance Report](adminAttendanceReport.png)
+
+### Intern Dashboard
+![Halaman Intern Dashboard](internDashboard.png)
+
 ------------------------------------------------------------------------
 
 **Dikembangkan oleh:** Jonathan Wijaya\
