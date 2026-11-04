@@ -19,7 +19,10 @@ app.use((req, _res, next) => {
 });
 
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: [
+      "http://localhost:5173",
+      "https://jonathan-wijaya-fullstack-developer.vercel.app",
+    ],
   credentials: true,
 }));
 
