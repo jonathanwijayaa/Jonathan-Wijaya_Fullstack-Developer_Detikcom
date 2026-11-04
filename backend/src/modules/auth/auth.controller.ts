@@ -47,13 +47,15 @@ export async function login(req: Request, res: Response) {
     });
   }
 
-  return res.status(200).json({
-    success: true,
+    return res.status(200).json({
     message: "Login successful",
-    data: {
-      accessToken: data.session.access_token,
-      expiresAt: data.session.expires_at,
-      user: profile,
+    accessToken: data.session.access_token,
+    expiresAt: data.session.expires_at,
+    user: {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        role: profile.role,
     },
-  });
+    });
 }
