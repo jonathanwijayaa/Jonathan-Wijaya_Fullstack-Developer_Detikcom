@@ -8,7 +8,8 @@ import {
   UserX,
   TrendingUp,
   Search,
-  X
+  X,
+  Download
 } from "lucide-react";
 
 import api from "@/services/api";
@@ -34,6 +35,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface AttendanceRecord {
   id: string;
@@ -89,7 +92,14 @@ function formatDate(date: string) {
 function formatTime(time: string | null) {
   if (!time) return "-";
 
-  return time.slice(0, 5);
+  return new Date(time)
+    .toLocaleTimeString("id-ID", {
+      timeZone: "Asia/Jakarta",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+    .replace(":", ".");
 }
 
 function getStatusBadge(status: AttendanceRecord["status"]) {
@@ -226,6 +236,128 @@ export default function AttendanceReport() {
     pagination.page * pagination.limit,
     pagination.total
   );
+  const [downloading, setDownloading] = useState(false);
+
+async function downloadPDF() {
+  try {
+    setDownloading(true);
+
+    const params = {
+      start_date: startDate,
+      end_date: endDate,
+      search,
+      department: department === "ALL" ? "" : department,
+      status: status === "ALL" ? "" : status,
+    };
+
+    // Ambil seluruh halaman hasil filter
+    const firstResponse = await api.get(
+      "/admin/attendance/report",
+      { params: { ...params, page: 1 } }
+    );
+
+    let allRecords: AttendanceRecord[] =
+      firstResponse.data.data ?? [];
+
+    const totalPages = Math.max(
+      firstResponse.data.pagination?.totalPages ?? 1,
+      1
+    );
+
+    for (let currentPage = 2; currentPage <= totalPages; currentPage++) {
+      const response = await api.get(
+        "/admin/attendance/report",
+        { params: { ...params, page: currentPage } }
+      );
+
+      allRecords = [
+        ...allRecords,
+        ...(response.data.data ?? []),
+      ];
+    }
+
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
+
+    doc.setFontSize(18);
+    doc.text("Attendance Report", 14, 18);
+
+    doc.setFontSize(10);
+    doc.text(
+      `Period: ${formatDate(startDate)} - ${formatDate(endDate)}`,
+      14,
+      26
+    );
+
+    doc.text(
+      `Department: ${department === "ALL" ? "All Departments" : department}`,
+      14,
+      32
+    );
+
+    doc.text(
+      `Status: ${status === "ALL" ? "All Status" : status}`,
+      14,
+      38
+    );
+
+    doc.text(
+      `Search: ${search.trim() || "All Interns"}`,
+      14,
+      44
+    );
+
+    autoTable(doc, {
+      startY: 51,
+      head: [[
+        "No.",
+        "Intern Name",
+        "Intern Code",
+        "Department",
+        "Date",
+        "Check In",
+        "Check Out",
+        "Status",
+      ]],
+      body: allRecords.map((record, index) => [
+        index + 1,
+        record.intern_name,
+        record.intern_code,
+        record.department,
+        formatDate(record.attendance_date),
+        formatTime(record.check_in),
+        formatTime(record.check_out),
+        record.status,
+      ]),
+      theme: "grid",
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      margin: {
+        left: 14,
+        right: 14,
+      },
+    });
+
+    const safeDate = new Date().toISOString().slice(0, 10);
+
+    doc.save(`attendance-report-${safeDate}.pdf`);
+  } catch (err) {
+    console.error("Failed to download attendance report:", err);
+    setError("Failed to generate PDF. Please try again.");
+  } finally {
+    setDownloading(false);
+  }
+}
 
   return (
     <div className="space-y-6">
@@ -379,16 +511,25 @@ export default function AttendanceReport() {
       {/* Attendance Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="flex items-center justify-between p-5">
-            <div>
-              <h2 className="font-semibold">
-                Attendance Records
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Attendance details based on selected filters
-              </p>
-            </div>
-          </div>
+          <div className="flex flex-col justify-between gap-3 p-5 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="font-semibold">
+            Attendance Records
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Attendance details based on selected filters
+          </p>
+        </div>
+
+        <Button
+          onClick={downloadPDF}
+          disabled={downloading || loading || pagination.total === 0}
+          size="sm"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          {downloading ? "Generating PDF..." : "Download PDF"}
+        </Button>
+      </div>
 
           {error && (
             <p className="px-5 pb-4 text-sm text-destructive">
