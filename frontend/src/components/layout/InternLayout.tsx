@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 export default function InternLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const pageTitle ="Dashboard";
 
   const handleLogout = () => {
     logout();
@@ -21,7 +22,7 @@ export default function InternLayout() {
       <aside className="fixed inset-y-0 left-0 flex w-64 flex-col border-r bg-white">
         <div className="border-b px-6 py-5">
           <h1 className="text-xl font-bold text-slate-900">
-            Attendance App
+            DetikHadir
           </h1>
           <p className="text-sm text-slate-500">Intern Portal</p>
         </div>
@@ -64,9 +65,9 @@ export default function InternLayout() {
       {/* Main Content */}
       <main className="ml-64 min-h-screen flex-1">
         <header className="flex h-16 items-center border-b bg-white px-8">
-          <span className="text-sm text-slate-500">
-            Welcome back, {user?.name}
-          </span>
+          <h1 className="text-lg font-semibold text-slate-900">
+                {pageTitle}
+            </h1>
         </header>
 
         <div className="p-8">
