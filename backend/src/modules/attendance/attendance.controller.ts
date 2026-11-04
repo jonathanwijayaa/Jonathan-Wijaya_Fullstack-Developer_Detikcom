@@ -313,4 +313,311 @@ export async function getAllAttendance(
       message: "Internal server error",
     });
   }
+  
 }
+
+function getReportDateRange() {
+  const today = getAttendanceDate();
+  const [year, month] = today.split("-");
+
+  const lastDay = new Date(
+    Date.UTC(Number(year), Number(month), 0)
+  ).getUTCDate();
+
+  return {
+    startDate: `${year}-${month}-01`,
+    endDate: `${year}-${month}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
+function getReportWorkingDays(start: string, end: string): string[] {
+  const dates: string[] = [];
+
+  const current = new Date(`${start}T00:00:00.000Z`);
+  const last = new Date(`${end}T00:00:00.000Z`);
+
+  while (current <= last) {
+    const day = current.getUTCDay();
+
+    // Monday - Friday
+    if (day !== 0 && day !== 6) {
+      dates.push(current.toISOString().slice(0, 10));
+    }
+
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
+  return dates;
+}
+
+// GET /api/admin/attendance/report
+export async function getAttendanceReport(
+  req: Request,
+  res: Response
+) {
+  try {
+    const defaults = getReportDateRange();
+
+    const startDate =
+      typeof req.query.start_date === "string"
+        ? req.query.start_date
+        : defaults.startDate;
+
+    const endDate =
+      typeof req.query.end_date === "string"
+        ? req.query.end_date
+        : defaults.endDate;
+
+    const search =
+      typeof req.query.search === "string"
+        ? req.query.search.trim().toLowerCase()
+        : "";
+
+    const department =
+      typeof req.query.department === "string"
+        ? req.query.department
+        : "";
+
+    const status =
+      typeof req.query.status === "string"
+        ? req.query.status
+        : "";
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = 10;
+
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (
+      !dateRegex.test(startDate) ||
+      !dateRegex.test(endDate) ||
+      startDate > endDate ||
+      Number.isNaN(Date.parse(`${startDate}T00:00:00Z`)) ||
+      Number.isNaN(Date.parse(`${endDate}T00:00:00Z`))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date range",
+      });
+    }
+
+    if (status && !["PRESENT", "LATE", "ABSENT"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid attendance status",
+      });
+    }
+
+    // Get all interns
+    const { data: interns, error: internError } =
+      await supabaseAdmin
+        .from("interns")
+        .select(`
+          id,
+          intern_code,
+          department,
+          start_date,
+          end_date,
+          users (
+            name,
+            email
+          )
+        `);
+
+    if (internError) throw internError;
+
+    // Filter interns based on internship period, search, and department
+    const matchedInterns = (interns ?? []).filter((intern: any) => {
+      const overlaps =
+        intern.start_date <= endDate &&
+        (!intern.end_date || intern.end_date >= startDate);
+
+      const user = Array.isArray(intern.users)
+        ? intern.users[0]
+        : intern.users;
+
+      const matchesSearch =
+        !search ||
+        user?.name?.toLowerCase().includes(search) ||
+        intern.intern_code.toLowerCase().includes(search);
+
+      const matchesDepartment =
+        !department || intern.department === department;
+
+      return overlaps && matchesSearch && matchesDepartment;
+    });
+
+    const internIds = matchedInterns.map((intern: any) => intern.id);
+
+    // Do not count future dates as absent
+    const today = getAttendanceDate();
+    const effectiveEnd = endDate < today ? endDate : today;
+
+    let attendanceRecords: any[] = [];
+
+    if (internIds.length > 0 && startDate <= effectiveEnd) {
+      const { data, error } = await supabaseAdmin
+        .from("attendances")
+        .select(`
+          id,
+          intern_id,
+          attendance_date,
+          check_in,
+          check_out,
+          status
+        `)
+        .in("intern_id", internIds)
+        .gte("attendance_date", startDate)
+        .lte("attendance_date", effectiveEnd);
+
+      if (error) throw error;
+
+      attendanceRecords = data ?? [];
+    }
+
+    const attendanceMap = new Map<string, any>();
+
+    for (const record of attendanceRecords) {
+      attendanceMap.set(
+        `${record.intern_id}_${record.attendance_date}`,
+        record
+      );
+    }
+
+    const rows: any[] = [];
+
+    let presentCount = 0;
+    let lateCount = 0;
+    let absentCount = 0;
+
+    for (const intern of matchedInterns) {
+      const user = Array.isArray(intern.users)
+        ? intern.users[0]
+        : intern.users;
+
+      const activeStart =
+        intern.start_date > startDate
+          ? intern.start_date
+          : startDate;
+
+      const activeEnd = intern.end_date
+        ? (intern.end_date < effectiveEnd
+            ? intern.end_date
+            : effectiveEnd)
+        : effectiveEnd;
+
+      // Skip interns whose active period has not started yet
+      if (activeStart > activeEnd) continue;
+
+      const workingDays = getReportWorkingDays(
+        activeStart,
+        activeEnd
+      );
+
+      for (const date of workingDays) {
+        const attendance = attendanceMap.get(
+          `${intern.id}_${date}`
+        );
+
+        const rowStatus: "PRESENT" | "LATE" | "ABSENT" =
+          attendance?.status === "PRESENT"
+            ? "PRESENT"
+            : attendance?.status === "LATE"
+              ? "LATE"
+              : "ABSENT";
+
+        if (rowStatus === "PRESENT") presentCount++;
+        else if (rowStatus === "LATE") lateCount++;
+        else absentCount++;
+
+        rows.push({
+          id: attendance?.id ?? `${intern.id}_${date}`,
+          intern_id: intern.id,
+          intern_name: user?.name ?? "-",
+          email: user?.email ?? "-",
+          intern_code: intern.intern_code,
+          department: intern.department,
+          attendance_date: date,
+          check_in: attendance?.check_in ?? null,
+          check_out: attendance?.check_out ?? null,
+          status: rowStatus,
+        });
+      }
+    }
+
+    // Sort newest attendance first
+    rows.sort((a, b) =>
+      b.attendance_date.localeCompare(a.attendance_date)
+    );
+
+    // Summary is calculated before status filtering
+    const totalExpected = presentCount + lateCount + absentCount;
+
+    const attendanceRate =
+      totalExpected > 0
+        ? Number(
+            (((presentCount + lateCount) / totalExpected) * 100).toFixed(1)
+          )
+        : 0;
+
+    // Apply status filter to table only
+    const filteredRows = status
+      ? rows.filter((row) => row.status === status)
+      : rows;
+
+    const total = filteredRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const startIndex = (page - 1) * limit;
+
+    const paginatedRows = filteredRows.slice(
+      startIndex,
+      startIndex + limit
+    );
+
+    // Get department options
+    const { data: allInterns, error: departmentError } =
+      await supabaseAdmin
+        .from("interns")
+        .select("department");
+
+    if (departmentError) throw departmentError;
+
+    const departments = [
+      ...new Set(
+        (allInterns ?? []).map((item) => item.department)
+      ),
+    ].sort();
+
+    return res.status(200).json({
+      success: true,
+      message: "Attendance report retrieved successfully",
+      data: paginatedRows,
+      summary: {
+        totalInterns: matchedInterns.length,
+        present: presentCount,
+        late: lateCount,
+        absent: absentCount,
+        attendanceRate,
+      },
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+      filters: {
+        departments,
+        startDate,
+        endDate,
+      },
+    });
+  } catch (error) {
+    console.error("Get attendance report error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve attendance report",
+    });
+  }
+}
+

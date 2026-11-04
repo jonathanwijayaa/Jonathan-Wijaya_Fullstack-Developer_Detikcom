@@ -6,6 +6,7 @@ import {
   UserX,
   RefreshCw,
 } from "lucide-react";
+import {Button} from "@/components/ui/button";
 
 import api from "@/services/api";
 import {
@@ -80,6 +81,22 @@ export default function AdminDashboard() {
   const [recentAttendances, setRecentAttendances] = useState<RecentAttendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const LIMIT = 10;
+
+  const [page, setPage] = useState(1);
+
+  const totalRecords = recentAttendances.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / LIMIT));
+
+  const firstRow =
+    totalRecords === 0 ? 0 : (page - 1) * LIMIT + 1;
+
+  const lastRow = Math.min(page * LIMIT, totalRecords);
+
+  const paginatedAttendances = recentAttendances.slice(
+    (page - 1) * LIMIT,
+    page * LIMIT
+  );
 
 
   const fetchDashboard = async () => {
@@ -224,7 +241,7 @@ export default function AdminDashboard() {
                     </td>
                     </tr>
                 ) : (
-                    recentAttendances.map((attendance) => (
+                    paginatedAttendances.map((attendance) => (
                     <tr key={attendance.id} className="border-b last:border-0">
                         <td className="py-4">
                         <div className="font-medium text-slate-900">
@@ -281,6 +298,37 @@ export default function AdminDashboard() {
                 )}
                 </tbody>
             </table>
+            </div>
+            <div className="mt-4 flex flex-col justify-between gap-3 border-t pt-4 sm:flex-row sm:items-center">
+              <p className="text-sm text-slate-500">
+                {totalRecords === 0
+                  ? "Showing 0 of 0 records"
+                  : `Showing ${firstRow}–${lastRow} of ${totalRecords} records`}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage((current) => current - 1)}
+                >
+                  Previous
+                </Button>
+
+                <span className="px-2 text-sm font-medium">
+                  {page} / {totalPages}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages || loading}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
         </CardContent>
         </Card>
