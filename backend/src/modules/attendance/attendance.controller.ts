@@ -236,3 +236,81 @@ export async function getMyAttendance(req: Request, res: Response) {
     });
   }
 }
+
+export async function getAllAttendance(
+  req: Request,
+  res: Response
+) {
+  try {
+    const { date, status, intern_id } = req.query;
+
+    let query = supabaseAdmin
+      .from("attendances")
+      .select(`
+        id,
+        attendance_date,
+        check_in,
+        check_out,
+        status,
+        created_at,
+        interns (
+          id,
+          intern_code,
+          department,
+          users (
+            name,
+            email
+          )
+        )
+      `)
+      .order("attendance_date", { ascending: false })
+      .order("check_in", { ascending: false });
+
+    // Filter by attendance date
+    if (typeof date === "string") {
+      query = query.eq("attendance_date", date);
+    }
+
+    // Filter by attendance status
+    if (typeof status === "string") {
+      if (!["PRESENT", "LATE"].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid attendance status",
+        });
+      }
+
+      query = query.eq("status", status);
+    }
+
+    // Filter by intern ID
+    if (typeof intern_id === "string") {
+      query = query.eq("intern_id", intern_id);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Get all attendance error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve attendance reports",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Attendance reports retrieved successfully",
+      data,
+      total: data.length,
+    });
+  } catch (error) {
+    console.error("Get all attendance error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
