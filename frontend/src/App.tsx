@@ -6,6 +6,10 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 
 import Login from "@/pages/Login";
 
+import AdminLayout from "@/components/layout/AdminLayout";
+import InternLayout from "@/components/layout/InternLayout";
+
+
 // Admin pages
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import InternManagement from "@/pages/admin/InternManagement";
@@ -37,33 +41,29 @@ function HomeRedirect() {
   );
 }
 
-function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-
-      <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/interns" element={<InternManagement />} />
-        <Route path="/admin/attendance" element={<AttendanceReport />} />
-      </Route>
-
-      <Route element={<ProtectedRoute allowedRoles={["INTERN"]} />}>
-        <Route path="/intern/dashboard" element={<InternDashboard />} />
-      </Route>
-
-      <Route path="/" element={<HomeRedirect />} />
-
-      <Route path="*" element={<HomeRedirect />} />
-    </Routes>
-  );
-}
-
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+
+          <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="interns" element={<InternManagement />} />
+              <Route path="attendance" element={<AttendanceReport />} />
+            </Route>
+          </Route>
+
+          <Route element={<ProtectedRoute allowedRoles={["INTERN"]} />}>
+            <Route path="/intern" element={<InternLayout />}>
+              <Route path="dashboard" element={<InternDashboard />} />
+            </Route>
+          </Route>
+
+          <Route path="/" element={<HomeRedirect />} />
+        </Routes>
       </AuthProvider>
     </BrowserRouter>
   );
