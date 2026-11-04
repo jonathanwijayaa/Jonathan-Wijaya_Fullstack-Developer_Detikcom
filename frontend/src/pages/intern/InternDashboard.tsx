@@ -2,7 +2,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useCallback, useEffect, useState } from "react";
 import {
   CalendarDays,
-  Clock,
   LogIn,
   LogOut,
   RefreshCw,
