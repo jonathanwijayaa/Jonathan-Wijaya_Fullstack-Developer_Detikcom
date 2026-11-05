@@ -190,15 +190,15 @@ export default function InternDashboard() {
   return (
     <div className="space-y-8">
       {/* Dashboard Heading */}
-      <Card>
+      <Card className="border-l-4 border-l-accent bg-card border-border">
         <CardContent className="p-6">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">
+              <h2 className="text-xl font-bold text-foreground">
                 Welcome back, {user?.name || "Intern"}!
               </h2>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Manage your daily attendance and view your attendance history.
               </p>
 
@@ -207,7 +207,7 @@ export default function InternDashboard() {
                   {profile?.intern_code || "-"}
                 </Badge>
 
-                <span className="text-sm text-slate-500">
+                <span className="text-sm text-muted-foreground">
                   {profile?.department || "-"}
                 </span>
               </div>
@@ -221,9 +221,9 @@ export default function InternDashboard() {
                 setPasswordSuccess("");
                 setPasswordDialogOpen(true);
               }}
-              className="gap-2"
+              className="gap-2 border-border text-foreground hover:bg-muted"
             >
-              <KeyRound size={16} />
+              <KeyRound size={16} className="text-muted-foreground" />
               Ganti Password
             </Button>
           </div>
@@ -245,12 +245,12 @@ export default function InternDashboard() {
       )}
 
       {/* Today's Attendance */}
-      <Card>
+      <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Today's Attendance</CardTitle>
-            <p className="mt-1 text-sm text-slate-500">
-              <CalendarDays className="mr-1 inline h-4 w-4" />
+            <CardTitle className="text-foreground">Today's Attendance</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              <CalendarDays className="mr-1 inline h-4 w-4 text-primary" />
               {new Date().toLocaleDateString("en-US", {
                 weekday: "long",
                 day: "2-digit",
@@ -266,33 +266,34 @@ export default function InternDashboard() {
             size="icon"
             onClick={fetchDashboard}
             disabled={loading}
+            className="border-border text-foreground hover:bg-muted"
           >
             <RefreshCw
-              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              className={`h-4 w-4 ${loading ? "animate-spin text-muted-foreground" : "text-muted-foreground"}`}
             />
           </Button>
         </CardHeader>
 
         <CardContent className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg bg-slate-50 p-5">
-              <div className="mb-3 flex items-center gap-2 text-sm text-slate-500">
-                <LogIn size={18} />
+            <div className="rounded-lg bg-muted/40 border border-border p-5">
+              <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                <LogIn size={18} className="text-primary" />
                 Check In
               </div>
 
-              <p className="text-3xl font-bold text-slate-900">
+              <p className="text-3xl font-bold text-foreground">
                 {loading ? "..." : formatTime(today?.check_in, "--:--")}
               </p>
             </div>
 
-            <div className="rounded-lg bg-slate-50 p-5">
-              <div className="mb-3 flex items-center gap-2 text-sm text-slate-500">
-                <LogOut size={18} />
+            <div className="rounded-lg bg-muted/40 border border-border p-5">
+              <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                <LogOut size={18} className="text-primary" />
                 Check Out
               </div>
 
-              <p className="text-3xl font-bold text-slate-900">
+              <p className="text-3xl font-bold text-foreground">
                 {loading ? "..." : formatTime(today?.check_out, "--:--")}
               </p>
             </div>
@@ -300,18 +301,18 @@ export default function InternDashboard() {
 
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-500">Status:</span>
+              <span className="text-sm text-muted-foreground">Status:</span>
 
               {loading ? (
                 <Badge variant="secondary">Loading</Badge>
               ) : !hasCheckedIn ? (
                 <Badge variant="secondary">Not Checked In</Badge>
               ) : today?.status === "LATE" ? (
-                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
+                <Badge className="bg-amber-100 text-amber-800 border border-amber-200">
                   Late
                 </Badge>
               ) : (
-                <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                <Badge className="bg-green-100 text-green-800 border border-green-200">
                   Present
                 </Badge>
               )}
@@ -345,18 +346,18 @@ export default function InternDashboard() {
       </Card>
 
       {/* Attendance History */}
-      <Card>
+      <Card className="bg-card border-border">
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Attendance History</CardTitle>
-            <p className="text-sm text-slate-500">
+            <CardTitle className="text-foreground">Attendance History</CardTitle>
+            <p className="text-sm text-muted-foreground">
               Your recent attendance records.
             </p>
           </div>
 
           {/* Filter Tanggal/Bulan di Sisi Kanan Label Attendance History */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500">Bulan:</span>
+            <span className="text-xs font-medium text-muted-foreground">Bulan:</span>
             <Input
               type="month"
               value={monthFilter}
@@ -364,7 +365,7 @@ export default function InternDashboard() {
                 setMonthFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-8 w-36 text-xs"
+              className="h-8 w-36 text-xs border-border bg-card text-foreground focus-visible:ring-ring"
             />
             {monthFilter && (
               <Button
@@ -374,7 +375,7 @@ export default function InternDashboard() {
                   setMonthFilter("");
                   setPage(1);
                 }}
-                className="h-8 px-2 text-xs text-red-500 hover:text-red-700"
+                className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10"
               >
                 Reset
               </Button>
@@ -383,28 +384,28 @@ export default function InternDashboard() {
         </CardHeader>
 
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-md border border-border">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-slate-500">
-                  <th className="pb-3 font-medium">Date</th>
-                  <th className="pb-3 font-medium">Check In</th>
-                  <th className="pb-3 font-medium">Check Out</th>
-                  <th className="pb-3 font-medium">Duration</th>
-                  <th className="pb-3 font-medium">Status</th>
+              <thead className="bg-muted/60 text-foreground border-b border-border">
+                <tr className="text-left font-semibold">
+                  <th className="px-4 py-3 font-semibold">Date</th>
+                  <th className="px-4 py-3 font-semibold">Check In</th>
+                  <th className="px-4 py-3 font-semibold">Check Out</th>
+                  <th className="px-4 py-3 font-semibold">Duration</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
                 </tr>
               </thead>
 
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500">
+                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
                       Loading attendance history...
                     </td>
                   </tr>
                 ) : history.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500">
+                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
                       No attendance records found.
                     </td>
                   </tr>
@@ -412,33 +413,33 @@ export default function InternDashboard() {
                   history.map((record) => (
                     <tr
                       key={record.id}
-                      className="border-b last:border-0"
+                      className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
                     >
-                      <td className="py-4">
+                      <td className="px-4 py-3.5 text-foreground">
                         {formatDate(record.attendance_date)}
                       </td>
 
-                      <td className="py-4">
+                      <td className="px-4 py-3.5 text-foreground">
                         {formatTime(record.check_in, "--:--")}
                       </td>
 
-                      <td className="py-4">
+                      <td className="px-4 py-3.5 text-foreground">
                         {formatTime(record.check_out, "--:--")}
                       </td>
 
-                      <td className="py-4 font-mono text-xs">
+                      <td className="px-4 py-3.5 font-mono text-xs text-foreground">
                         {record.duration || formatDuration(record.check_in, record.check_out)}
                       </td>
 
-                      <td className="py-4">
+                      <td className="px-4 py-3.5">
                         {record.status === "LATE" ? (
-                          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
+                          <span className="rounded-full px-2.5 py-0.5 text-xs font-medium border bg-amber-100 text-amber-800 border-amber-200">
                             Late
-                          </Badge>
+                          </span>
                         ) : (
-                          <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                          <span className="rounded-full px-2.5 py-0.5 text-xs font-medium border bg-green-100 text-green-800 border-green-200">
                             Present
-                          </Badge>
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -450,8 +451,8 @@ export default function InternDashboard() {
 
           {/* Pagination */}
           {!loading && totalRecords > 0 && (
-            <div className="mt-4 flex flex-col justify-between gap-3 border-t pt-4 sm:flex-row sm:items-center">
-              <p className="text-sm text-slate-500">
+            <div className="mt-4 flex flex-col justify-between gap-3 border-t border-border pt-4 sm:flex-row sm:items-center">
+              <p className="text-sm text-muted-foreground">
                 Showing {(page - 1) * LIMIT + 1}–
                 {Math.min(page * LIMIT, totalRecords)} of {totalRecords} records
               </p>
@@ -462,11 +463,12 @@ export default function InternDashboard() {
                   size="sm"
                   disabled={page <= 1}
                   onClick={() => setPage((current) => current - 1)}
+                  className="border-border text-foreground hover:bg-muted"
                 >
                   Previous
                 </Button>
 
-                <span className="px-2 text-sm font-medium">
+                <span className="px-2 text-sm font-medium text-foreground">
                   {page} / {Math.max(totalPages, 1)}
                 </span>
 
@@ -475,6 +477,7 @@ export default function InternDashboard() {
                   size="sm"
                   disabled={page >= totalPages}
                   onClick={() => setPage((current) => current + 1)}
+                  className="border-border text-foreground hover:bg-muted"
                 >
                   Next
                 </Button>
@@ -492,10 +495,10 @@ export default function InternDashboard() {
       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-foreground">
               {user?.mustChangePassword ? "Wajib Ganti Password" : "Ganti Password"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-muted-foreground">
               {user?.mustChangePassword
                 ? "Akun Anda saat ini menggunakan password default 'intern'. Demi keamanan, Anda wajib membuat password baru sebelum melanjutkan."
                 : "Masukkan password baru minimal 6 karakter."}
@@ -504,19 +507,20 @@ export default function InternDashboard() {
 
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Password Baru</label>
+              <label className="text-sm font-medium text-foreground">Password Baru</label>
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Minimal 6 karakter"
+                  className="border-border focus-visible:ring-ring"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -524,12 +528,13 @@ export default function InternDashboard() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Konfirmasi Password Baru</label>
+              <label className="text-sm font-medium text-foreground">Konfirmasi Password Baru</label>
               <Input
                 type={showPassword ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Ulangi password baru"
+                className="border-border focus-visible:ring-ring"
                 required
               />
             </div>
@@ -553,6 +558,7 @@ export default function InternDashboard() {
                   variant="outline"
                   onClick={() => setPasswordDialogOpen(false)}
                   disabled={passwordLoading}
+                  className="border-border text-foreground hover:bg-muted"
                 >
                   Batal
                 </Button>
