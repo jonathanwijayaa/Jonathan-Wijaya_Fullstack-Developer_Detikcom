@@ -30,3 +30,4 @@ export const INDONESIAN_NATIONAL_HOLIDAYS: string[] = [
   "2026-08-25", // Maulid Nabi Muhammad SAW
   "2026-12-25", // Hari Raya Natal
 ];
+

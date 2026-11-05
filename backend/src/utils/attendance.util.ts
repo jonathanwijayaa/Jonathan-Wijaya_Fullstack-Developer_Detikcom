@@ -176,3 +176,4 @@ export function validateCheckOutRule(existingAttendance: {
 
   return { allowed: true };
 }
+
