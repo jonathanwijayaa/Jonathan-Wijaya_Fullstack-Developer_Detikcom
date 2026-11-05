@@ -1,14 +1,16 @@
 import { Request, Response } from "express";
 import { supabaseAdmin } from "../../config/supabase";
 import { AuthUser } from "../../middlewares/auth.middleware";
+import {
+  determineAttendanceStatus,
+  getJakartaDate,
+  getWorkingDaysInRange,
+  calculateAttendanceRate,
+  calculateWorkDuration,
+} from "../../utils/attendance.util";
 
 function getAttendanceDate() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  return getJakartaDate();
 }
 
 async function getInternId(user: AuthUser) {
@@ -39,6 +41,7 @@ export async function checkIn(req: Request, res: Response) {
     }
 
     const now = new Date();
+    const attendanceStatus = determineAttendanceStatus(now);
 
     const { data, error } = await supabaseAdmin
       .from("attendances")
@@ -46,7 +49,7 @@ export async function checkIn(req: Request, res: Response) {
         intern_id: internId,
         attendance_date: getAttendanceDate(),
         check_in: now.toISOString(),
-        status: "PRESENT",
+        status: attendanceStatus,
       })
       .select()
       .single();
@@ -182,6 +185,9 @@ export async function getMyAttendance(req: Request, res: Response) {
     }
 
     const today = getAttendanceDate();
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.max(1, Number(req.query.limit) || 10);
+    const month = typeof req.query.month === "string" ? req.query.month.trim() : "";
 
     // Get today's attendance
     const { data: todayAttendance, error: todayError } =
@@ -201,14 +207,25 @@ export async function getMyAttendance(req: Request, res: Response) {
       });
     }
 
-    // Get attendance history
-    const { data: history, error: historyError } =
-      await supabaseAdmin
-        .from("attendances")
-        .select("*")
-        .eq("intern_id", internId)
+    // Get attendance history with pagination and month filter
+    let historyQuery = supabaseAdmin
+      .from("attendances")
+      .select("*", { count: "exact" })
+      .eq("intern_id", internId);
+
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      historyQuery = historyQuery
+        .gte("attendance_date", `${month}-01`)
+        .lte("attendance_date", `${month}-31`);
+    }
+
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data: history, count: totalCount, error: historyError } =
+      await historyQuery
         .order("attendance_date", { ascending: false })
-        .limit(30);
+        .range(from, to);
 
     if (historyError) {
       console.error("Attendance history error:", historyError);
@@ -219,12 +236,32 @@ export async function getMyAttendance(req: Request, res: Response) {
       });
     }
 
+    const total = totalCount ?? (history?.length || 0);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    const historyWithDuration = (history || []).map((item) => ({
+      ...item,
+      duration: calculateWorkDuration(item.check_in, item.check_out),
+    }));
+
     return res.status(200).json({
       success: true,
       message: "Attendance retrieved successfully",
       data: {
         today: todayAttendance,
-        history: history || [],
+        history: historyWithDuration,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      },
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
       },
     });
   } catch (error) {
@@ -299,11 +336,16 @@ export async function getAllAttendance(
       });
     }
 
+    const recordsWithDuration = (data || []).map((item: any) => ({
+      ...item,
+      duration: calculateWorkDuration(item.check_in, item.check_out),
+    }));
+
     return res.status(200).json({
       success: true,
       message: "Attendance reports retrieved successfully",
-      data,
-      total: data.length,
+      data: recordsWithDuration,
+      total: recordsWithDuration.length,
     });
   } catch (error) {
     console.error("Get all attendance error:", error);
@@ -313,7 +355,6 @@ export async function getAllAttendance(
       message: "Internal server error",
     });
   }
-  
 }
 
 function getReportDateRange() {
@@ -328,26 +369,6 @@ function getReportDateRange() {
     startDate: `${year}-${month}-01`,
     endDate: `${year}-${month}-${String(lastDay).padStart(2, "0")}`,
   };
-}
-
-function getReportWorkingDays(start: string, end: string): string[] {
-  const dates: string[] = [];
-
-  const current = new Date(`${start}T00:00:00.000Z`);
-  const last = new Date(`${end}T00:00:00.000Z`);
-
-  while (current <= last) {
-    const day = current.getUTCDay();
-
-    // Monday - Friday
-    if (day !== 0 && day !== 6) {
-      dates.push(current.toISOString().slice(0, 10));
-    }
-
-    current.setUTCDate(current.getUTCDate() + 1);
-  }
-
-  return dates;
 }
 
 // GET /api/admin/attendance/report
@@ -401,7 +422,7 @@ export async function getAttendanceReport(
       });
     }
 
-    if (status && !["PRESENT", "LATE", "ABSENT"].includes(status)) {
+    if (status && !["PRESENT", "LATE", "ABSENT", "NOT_CHECKED_IN"].includes(status)) {
       return res.status(400).json({
         success: false,
         message: "Invalid attendance status",
@@ -509,7 +530,7 @@ export async function getAttendanceReport(
       // Skip interns whose active period has not started yet
       if (activeStart > activeEnd) continue;
 
-      const workingDays = getReportWorkingDays(
+      const workingDays = getWorkingDaysInRange(
         activeStart,
         activeEnd
       );
@@ -519,16 +540,27 @@ export async function getAttendanceReport(
           `${intern.id}_${date}`
         );
 
-        const rowStatus: "PRESENT" | "LATE" | "ABSENT" =
-          attendance?.status === "PRESENT"
-            ? "PRESENT"
-            : attendance?.status === "LATE"
-              ? "LATE"
-              : "ABSENT";
+        const isToday = date === today;
+        let rowStatus: "PRESENT" | "LATE" | "ABSENT" | "NOT_CHECKED_IN";
 
-        if (rowStatus === "PRESENT") presentCount++;
-        else if (rowStatus === "LATE") lateCount++;
-        else absentCount++;
+        if (attendance?.status === "PRESENT") {
+          rowStatus = "PRESENT";
+          presentCount++;
+        } else if (attendance?.status === "LATE") {
+          rowStatus = "LATE";
+          lateCount++;
+        } else if (isToday) {
+          rowStatus = "NOT_CHECKED_IN";
+          // Hari berjalan belum check-in tidak dihitung sebagai absent
+        } else {
+          rowStatus = "ABSENT";
+          absentCount++;
+        }
+
+        const duration = calculateWorkDuration(
+          attendance?.check_in,
+          attendance?.check_out
+        );
 
         rows.push({
           id: attendance?.id ?? `${intern.id}_${date}`,
@@ -540,6 +572,7 @@ export async function getAttendanceReport(
           attendance_date: date,
           check_in: attendance?.check_in ?? null,
           check_out: attendance?.check_out ?? null,
+          duration,
           status: rowStatus,
         });
       }
@@ -551,14 +584,11 @@ export async function getAttendanceReport(
     );
 
     // Summary is calculated before status filtering
-    const totalExpected = presentCount + lateCount + absentCount;
-
-    const attendanceRate =
-      totalExpected > 0
-        ? Number(
-            (((presentCount + lateCount) / totalExpected) * 100).toFixed(1)
-          )
-        : 0;
+    const attendanceRate = calculateAttendanceRate(
+      presentCount,
+      lateCount,
+      absentCount
+    );
 
     // Apply status filter to table only
     const filteredRows = status
@@ -621,3 +651,68 @@ export async function getAttendanceReport(
   }
 }
 
+// PATCH /api/admin/attendance/:id (Koreksi absensi oleh admin)
+export async function correctAttendance(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { check_in, check_out, status, intern_id, attendance_date } = req.body;
+
+    // Jika ID adalah compound internId_date (virtual absent row), kita buat baris baru
+    if (id.includes("_") || (!id && intern_id && attendance_date)) {
+      const [parsedInternId, parsedDate] = id.includes("_")
+        ? id.split("_")
+        : [intern_id, attendance_date];
+
+      const { data: inserted, error: insertError } = await supabaseAdmin
+        .from("attendances")
+        .insert({
+          intern_id: parsedInternId,
+          attendance_date: parsedDate,
+          check_in: check_in || null,
+          check_out: check_out || null,
+          status: status || "PRESENT",
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: "Attendance record created successfully",
+        data: inserted,
+      });
+    }
+
+    const updatePayload: Record<string, any> = {};
+    if (check_in !== undefined) updatePayload.check_in = check_in;
+    if (check_out !== undefined) updatePayload.check_out = check_out;
+    if (status !== undefined) updatePayload.status = status;
+
+    const { data, error } = await supabaseAdmin
+      .from("attendances")
+      .update(updatePayload)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Attendance corrected successfully",
+      data,
+    });
+  } catch (error: any) {
+    console.error("Correct attendance error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to correct attendance record",
+    });
+  }
+}

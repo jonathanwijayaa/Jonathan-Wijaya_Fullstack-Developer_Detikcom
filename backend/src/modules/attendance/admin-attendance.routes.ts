@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getAllAttendance,
   getAttendanceReport,
+  correctAttendance,
 } from "./attendance.controller";
 
 import {
@@ -15,5 +16,7 @@ router.use(authenticate, authorize("ADMIN"));
 
 router.get("/", getAllAttendance);
 router.get("/report", getAttendanceReport);
+router.patch("/:id", correctAttendance);
+router.post("/correct", correctAttendance);
 
 export default router;
