@@ -38,7 +38,7 @@ export function formatDate(value: string | null | undefined): string {
 
     if (isNaN(date.getTime())) return "-";
 
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
       year: "numeric",
