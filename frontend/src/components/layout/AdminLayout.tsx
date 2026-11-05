@@ -46,15 +46,17 @@ export default function AdminLayout() {
 
   const sidebarContent = (
     <>
-      <div className="flex items-center justify-between border-b px-6 py-5">
+      <div className="flex items-center justify-between border-b border-border px-6 py-5">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">DetikHadir</h1>
-          <p className="text-sm text-slate-500">Admin Panel</p>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            Detik<span className="text-accent">Hadir</span>
+          </h1>
+          <p className="text-sm text-muted-foreground">Admin Panel</p>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden"
+          className="md:hidden text-muted-foreground hover:text-foreground"
           onClick={() => setMobileOpen(false)}
         >
           <X size={18} />
@@ -71,32 +73,41 @@ export default function AdminLayout() {
               to={item.path}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition border-l-4 ${
                   isActive
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-100"
+                    ? "bg-primary text-primary-foreground border-accent shadow-xs"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground border-transparent"
                 }`
               }
             >
-              <Icon size={18} />
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  <Icon
+                    size={18}
+                    className={
+                      isActive ? "text-primary-foreground" : "text-muted-foreground"
+                    }
+                  />
+                  <span>{item.label}</span>
+                </>
+              )}
             </NavLink>
           );
         })}
       </nav>
 
-      <div className="border-t p-4">
+      <div className="border-t border-border p-4">
         <div className="mb-3">
-          <p className="text-sm font-medium text-slate-900">{user?.name}</p>
-          <p className="text-xs text-slate-500">{user?.email}</p>
+          <p className="text-sm font-medium text-foreground">{user?.name}</p>
+          <p className="text-xs text-muted-foreground">{user?.email}</p>
         </div>
 
         <Button
           variant="outline"
-          className="w-full justify-start gap-2"
+          className="w-full justify-start gap-2 border-border text-foreground hover:bg-muted"
           onClick={handleLogout}
         >
-          <LogOut size={16} />
+          <LogOut size={16} className="text-muted-foreground" />
           Logout
         </Button>
       </div>
@@ -104,9 +115,9 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-background">
       {/* Desktop Sidebar */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r bg-white md:flex">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-card md:flex">
         {sidebarContent}
       </aside>
 
@@ -114,10 +125,10 @@ export default function AdminLayout() {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-foreground/40 backdrop-blur-xs transition-opacity"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="relative flex w-64 max-w-xs flex-1 flex-col bg-white shadow-xl">
+          <div className="relative flex w-64 max-w-xs flex-1 flex-col bg-card shadow-xl">
             {sidebarContent}
           </div>
         </div>
@@ -125,17 +136,17 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <main className="min-h-screen flex-1 md:ml-64">
-        <header className="flex h-16 items-center justify-between border-b bg-white px-4 md:px-8">
+        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 md:px-8">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="md:hidden text-muted-foreground hover:text-foreground"
               onClick={() => setMobileOpen(true)}
             >
               <Menu size={20} />
             </Button>
-            <h1 className="text-lg font-semibold text-slate-900">
+            <h1 className="text-lg font-semibold text-foreground">
               {pageTitle}
             </h1>
           </div>
