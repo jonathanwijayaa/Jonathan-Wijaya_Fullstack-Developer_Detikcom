@@ -654,7 +654,7 @@ export async function getAttendanceReport(
 // PATCH /api/admin/attendance/:id (Koreksi absensi oleh admin)
 export async function correctAttendance(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id || "");
     const { check_in, check_out, status, intern_id, attendance_date } = req.body;
 
     // Jika ID adalah compound internId_date (virtual absent row), kita buat baris baru
