@@ -47,12 +47,12 @@ export default function Login() {
       err.response?.data?.message ||
       err.response?.data?.error ||
       err.message ||
-      "Gagal menghubungi server."
+      "Failed to contact the server."
     );
   } else if (err instanceof Error) {
     setError(err.message);
   } else {
-    setError("Terjadi kesalahan yang tidak diketahui.");
+    setError("An unknown error occurred.");
   }
 } finally {
   setLoading(false);
