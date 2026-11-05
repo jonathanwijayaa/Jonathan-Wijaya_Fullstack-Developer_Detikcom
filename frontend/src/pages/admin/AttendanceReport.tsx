@@ -634,16 +634,16 @@ export default function AttendanceReport() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base font-semibold">
-              Tren Kehadiran Harian
+              Daily Attendance Trend
             </CardTitle>
             <CardDescription>
-              Jumlah kehadiran harian (Present, Late, Absent) berdasarkan filter aktif
+              Daily attendance count (Present, Late, Absent) based on the active filters
             </CardDescription>
           </CardHeader>
           <CardContent className="h-72">
             {dailyChartData.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                Belum ada data untuk ditampilkan pada grafik tren.
+                No data available for the trend chart.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -664,16 +664,16 @@ export default function AttendanceReport() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-semibold">
-              Distribusi Kehadiran
+              Attendance Distribution
             </CardTitle>
             <CardDescription>
-              Proporsi Present, Late, dan Absent periode ini
+              Present, Late, and Absent proportions for this period
             </CardDescription>
           </CardHeader>
           <CardContent className="h-72 flex flex-col items-center justify-center">
             {pieChartData.length === 0 ? (
               <div className="text-sm text-muted-foreground">
-                Tidak ada data distribusi kehadiran.
+                No attendance distribution data.
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -692,7 +692,7 @@ export default function AttendanceReport() {
                       <Cell key={entry.name} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: any) => [`${value} hari`, "Jumlah"]} />
+                  <Tooltip formatter={(value: any) => [`${value} days`, "Count"]} />
                   <Legend wrapperStyle={{ fontSize: "12px" }} />
                 </PieChart>
               </ResponsiveContainer>
@@ -873,17 +873,17 @@ export default function AttendanceReport() {
       <Dialog open={correctDialogOpen} onOpenChange={setCorrectDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Koreksi Absensi</DialogTitle>
+            <DialogTitle>Correct Attendance</DialogTitle>
             <DialogDescription>
-              Perbaiki catatan waktu check-in atau check-out untuk{" "}
-              <strong>{selectedRecord?.intern_name}</strong> pada tanggal{" "}
+              Correct the check-in or check-out time for{" "}
+              <strong>{selectedRecord?.intern_name}</strong> on{" "}
               <strong>{selectedRecord && formatDate(selectedRecord.attendance_date)}</strong>.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSaveCorrection} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Jam Check In (HH:mm)</label>
+              <label className="text-sm font-medium">Check-In Time (HH:mm)</label>
               <Input
                 type="time"
                 value={editCheckIn}
@@ -892,7 +892,7 @@ export default function AttendanceReport() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Jam Check Out (HH:mm)</label>
+              <label className="text-sm font-medium">Check-Out Time (HH:mm)</label>
               <Input
                 type="time"
                 value={editCheckOut}
@@ -933,7 +933,7 @@ export default function AttendanceReport() {
                 Cancel
               </Button>
               <Button type="submit" disabled={correcting}>
-                {correcting ? "Menyimpan..." : "Simpan Koreksi"}
+                {correcting ? "Saving..." : "Save Correction"}
               </Button>
             </DialogFooter>
           </form>

@@ -358,10 +358,10 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base font-semibold text-foreground">
-                  Intern Belum Check-in Hari Ini
+                  Interns Not Checked In Today
                 </CardTitle>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Daftar peserta aktif yang belum melakukan absensi masuk hari ini.
+                  List of active interns who have not checked in today.
                 </p>
               </div>
               <Badge variant="outline" className="text-muted-foreground bg-muted border-border">
@@ -383,13 +383,13 @@ export default function AdminDashboard() {
                   {loading ? (
                     <tr>
                       <td colSpan={3} className="py-4 text-center text-muted-foreground">
-                        Memuat data...
+                        Loading data...
                       </td>
                     </tr>
                   ) : unattendedList.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="py-6 text-center text-muted-foreground text-xs">
-                        Semua peserta magang sudah check-in hari ini.
+                        All interns have checked in today.
                       </td>
                     </tr>
                   ) : (
@@ -418,10 +418,10 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base font-semibold text-foreground">
-                  Intern Belum Check-out Hari Ini
+                  Interns Not Checked Out Today
                 </CardTitle>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Peserta yang telah check-in tetapi belum menyelesaikan sesi absensi pulang.
+                  Interns who have checked in but have not completed their check-out.
                 </p>
               </div>
               <Badge variant="outline" className="text-primary bg-primary/10 border-primary/20">
@@ -443,13 +443,13 @@ export default function AdminDashboard() {
                   {loading ? (
                     <tr>
                       <td colSpan={3} className="py-4 text-center text-muted-foreground">
-                        Memuat data...
+                        Loading data...
                       </td>
                     </tr>
                   ) : notCheckedOutList.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="py-6 text-center text-muted-foreground text-xs">
-                        Tidak ada peserta yang tertunda check-out.
+                        No pending check-outs.
                       </td>
                     </tr>
                   ) : (
