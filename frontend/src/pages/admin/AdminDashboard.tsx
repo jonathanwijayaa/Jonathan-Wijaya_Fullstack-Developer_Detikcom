@@ -175,17 +175,18 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <button
+        <Button
+          variant="outline"
           onClick={fetchDashboard}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
+          className="gap-2 border-border bg-card text-foreground hover:bg-muted"
         >
           <RefreshCw
             size={16}
-            className={loading ? "animate-spin" : ""}
+            className={loading ? "animate-spin text-muted-foreground" : "text-muted-foreground"}
           />
           Refresh
-        </button>
+        </Button>
       </div>
 
       {/* Error Message */}
