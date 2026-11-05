@@ -146,12 +146,12 @@ export default function InternDashboard() {
     setPasswordSuccess("");
 
     if (newPassword.length < 6) {
-      setPasswordError("Password baru minimal 6 karakter.");
+      setPasswordError("New password must be at least 6 characters.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordError("Konfirmasi password tidak cocok.");
+      setPasswordError("Password confirmation does not match.");
       return;
     }
 
@@ -159,7 +159,7 @@ export default function InternDashboard() {
       setPasswordLoading(true);
       await api.post("/auth/change-password", { newPassword });
 
-      setPasswordSuccess("Password berhasil diubah!");
+      setPasswordSuccess("Password changed successfully!");
       setNewPassword("");
       setConfirmPassword("");
 
@@ -177,7 +177,7 @@ export default function InternDashboard() {
       }, 1500);
     } catch (err: any) {
       setPasswordError(
-        err.response?.data?.message || "Gagal mengubah password. Silakan coba lagi."
+        err.response?.data?.message || "Failed to change password. Please try again."
       );
     } finally {
       setPasswordLoading(false);
@@ -224,7 +224,7 @@ export default function InternDashboard() {
               className="gap-2 border-border text-foreground hover:bg-muted"
             >
               <KeyRound size={16} className="text-muted-foreground" />
-              Ganti Password
+              Change Password
             </Button>
           </div>
         </CardContent>
@@ -357,7 +357,7 @@ export default function InternDashboard() {
 
           {/* Filter Tanggal/Bulan di Sisi Kanan Label Attendance History */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Bulan:</span>
+            <span className="text-xs font-medium text-muted-foreground">Month:</span>
             <Input
               type="month"
               value={monthFilter}
@@ -496,24 +496,24 @@ export default function InternDashboard() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-foreground">
-              {user?.mustChangePassword ? "Wajib Ganti Password" : "Ganti Password"}
+              {user?.mustChangePassword ? "Password Change Required" : "Change Password"}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               {user?.mustChangePassword
-                ? "Akun Anda saat ini menggunakan password default 'intern'. Demi keamanan, Anda wajib membuat password baru sebelum melanjutkan."
-                : "Masukkan password baru minimal 6 karakter."}
+                ? "Your account currently uses the default password 'intern'. For security, you must create a new password before continuing."
+                : "Enter a new password with at least 6 characters."}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Password Baru</label>
+              <label className="text-sm font-medium text-foreground">New Password</label>
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Minimal 6 karakter"
+                  placeholder="At least 6 characters"
                   className="border-border focus-visible:ring-ring"
                   required
                 />
@@ -528,12 +528,12 @@ export default function InternDashboard() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Konfirmasi Password Baru</label>
+              <label className="text-sm font-medium text-foreground">Confirm New Password</label>
               <Input
                 type={showPassword ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Ulangi password baru"
+                placeholder="Re-enter the new password"
                 className="border-border focus-visible:ring-ring"
                 required
               />
@@ -560,12 +560,12 @@ export default function InternDashboard() {
                   disabled={passwordLoading}
                   className="border-border text-foreground hover:bg-muted"
                 >
-                  Batal
+                  Cancel
                 </Button>
               )}
 
               <Button type="submit" disabled={passwordLoading}>
-                {passwordLoading ? "Menyimpan..." : "Simpan Password Baru"}
+                {passwordLoading ? "Saving..." : "Save New Password"}
               </Button>
             </DialogFooter>
           </form>
