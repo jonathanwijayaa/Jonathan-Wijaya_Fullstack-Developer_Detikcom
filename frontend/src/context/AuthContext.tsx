@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { accessToken, user } = response.data;
 
     if (!accessToken || !user || !user.role) {
-        throw new Error("Format response login dari server tidak valid.");
+        throw new Error("Invalid login response from server.");
     }
 
     localStorage.setItem("accessToken", accessToken);

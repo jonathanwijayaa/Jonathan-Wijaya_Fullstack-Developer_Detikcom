@@ -14,7 +14,7 @@ export function formatTime(
     const date = new Date(value);
     if (isNaN(date.getTime())) return placeholder;
 
-    return date.toLocaleTimeString("id-ID", {
+    return date.toLocaleTimeString("en-US", {
       timeZone: "Asia/Jakarta",
       hour: "2-digit",
       minute: "2-digit",
@@ -38,7 +38,7 @@ export function formatDate(value: string | null | undefined): string {
 
     if (isNaN(date.getTime())) return "-";
 
-    return date.toLocaleDateString("id-ID", {
+    return date.toLocaleDateString("en-US", {
       day: "2-digit",
       month: "short",
       year: "numeric",
