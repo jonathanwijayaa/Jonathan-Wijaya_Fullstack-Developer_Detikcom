@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Search, Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 import api from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -257,13 +258,6 @@ export default function InternManagement() {
         return <Badge variant="secondary">Completed</Badge>;
     }
   };
-
-  const formatDate = (date: string) =>
-    new Date(`${date}T00:00:00`).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
 
   return (
     <div className="space-y-6">

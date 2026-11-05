@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   CalendarDays,
   Users,
@@ -9,7 +8,9 @@ import {
   TrendingUp,
   Search,
   X,
-  Download
+  Download,
+  FileSpreadsheet,
+  Pencil,
 } from "lucide-react";
 
 import api from "@/services/api";
@@ -19,6 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import {
   Select,
@@ -35,8 +39,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { formatTime, formatDate, formatDuration } from "@/lib/utils";
 
 interface AttendanceRecord {
   id: string;
@@ -48,7 +73,8 @@ interface AttendanceRecord {
   attendance_date: string;
   check_in: string | null;
   check_out: string | null;
-  status: "PRESENT" | "LATE" | "ABSENT";
+  duration?: string;
+  status: "PRESENT" | "LATE" | "ABSENT" | "NOT_CHECKED_IN";
 }
 
 interface Summary {
@@ -78,30 +104,6 @@ function getCurrentMonthRange() {
   };
 }
 
-function formatDate(date: string) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString(
-    "en-GB",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }
-  );
-}
-
-function formatTime(time: string | null) {
-  if (!time) return "-";
-
-  return new Date(time)
-    .toLocaleTimeString("id-ID", {
-      timeZone: "Asia/Jakarta",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    })
-    .replace(":", ".");
-}
-
 function getStatusBadge(status: AttendanceRecord["status"]) {
   switch (status) {
     case "PRESENT":
@@ -116,6 +118,8 @@ function getStatusBadge(status: AttendanceRecord["status"]) {
           Late
         </Badge>
       );
+    case "NOT_CHECKED_IN":
+      return <Badge variant="secondary">Not Checked In</Badge>;
     default:
       return <Badge variant="destructive">Absent</Badge>;
   }
@@ -124,12 +128,8 @@ function getStatusBadge(status: AttendanceRecord["status"]) {
 export default function AttendanceReport() {
   const defaultRange = getCurrentMonthRange();
 
-  const [startDate, setStartDate] = useState(
-    defaultRange.startDate
-  );
-  const [endDate, setEndDate] = useState(
-    defaultRange.endDate
-  );
+  const [startDate, setStartDate] = useState(defaultRange.startDate);
+  const [endDate, setEndDate] = useState(defaultRange.endDate);
 
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("ALL");
@@ -155,6 +155,17 @@ export default function AttendanceReport() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadingCSV, setDownloadingCSV] = useState(false);
+
+  // Koreksi dialog state
+  const [correctDialogOpen, setCorrectDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [editCheckIn, setEditCheckIn] = useState("");
+  const [editCheckOut, setEditCheckOut] = useState("");
+  const [editStatus, setEditStatus] = useState<"PRESENT" | "LATE" | "ABSENT">("PRESENT");
+  const [correcting, setCorrecting] = useState(false);
+  const [correctError, setCorrectError] = useState("");
 
   async function fetchAttendance(page = 1) {
     try {
@@ -227,12 +238,8 @@ export default function AttendanceReport() {
     },
   ];
 
-  const [downloading, setDownloading] = useState(false);
-
-async function downloadPDF() {
-  try {
-    setDownloading(true);
-
+  // Helper untuk menarik semua data laporan sesuai filter saat ini (untuk download)
+  async function fetchAllFilteredRecords(): Promise<AttendanceRecord[]> {
     const params = {
       start_date: startDate,
       end_date: endDate,
@@ -241,69 +248,118 @@ async function downloadPDF() {
       status: status === "ALL" ? "" : status,
     };
 
-    // Ambil seluruh halaman hasil filter
-    const firstResponse = await api.get(
-      "/admin/attendance/report",
-      { params: { ...params, page: 1 } }
-    );
-
-    let allRecords: AttendanceRecord[] =
-      firstResponse.data.data ?? [];
-
-    const totalPages = Math.max(
-      firstResponse.data.pagination?.totalPages ?? 1,
-      1
-    );
-
-    for (let currentPage = 2; currentPage <= totalPages; currentPage++) {
-      const response = await api.get(
-        "/admin/attendance/report",
-        { params: { ...params, page: currentPage } }
-      );
-
-      allRecords = [
-        ...allRecords,
-        ...(response.data.data ?? []),
-      ];
-    }
-
-    const doc = new jsPDF({
-      orientation: "landscape",
-      unit: "mm",
-      format: "a4",
+    const firstResponse = await api.get("/admin/attendance/report", {
+      params: { ...params, page: 1 },
     });
 
-    doc.setFontSize(18);
-    doc.text("Attendance Report", 14, 18);
+    let allRecords: AttendanceRecord[] = firstResponse.data.data ?? [];
+    const totalPages = Math.max(firstResponse.data.pagination?.totalPages ?? 1, 1);
 
-    doc.setFontSize(10);
-    doc.text(
-      `Period: ${formatDate(startDate)} - ${formatDate(endDate)}`,
-      14,
-      26
-    );
+    for (let currentPage = 2; currentPage <= totalPages; currentPage++) {
+      const response = await api.get("/admin/attendance/report", {
+        params: { ...params, page: currentPage },
+      });
+      allRecords = [...allRecords, ...(response.data.data ?? [])];
+    }
 
-    doc.text(
-      `Department: ${department === "ALL" ? "All Departments" : department}`,
-      14,
-      32
-    );
+    return allRecords;
+  }
 
-    doc.text(
-      `Status: ${status === "ALL" ? "All Status" : status}`,
-      14,
-      38
-    );
+  async function downloadPDF() {
+    try {
+      setDownloading(true);
+      const allRecords = await fetchAllFilteredRecords();
 
-    doc.text(
-      `Search: ${search.trim() || "All Interns"}`,
-      14,
-      44
-    );
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
 
-    autoTable(doc, {
-      startY: 51,
-      head: [[
+      doc.setFontSize(18);
+      doc.text("Attendance Report", 14, 18);
+
+      doc.setFontSize(10);
+      doc.text(
+        `Period: ${formatDate(startDate)} - ${formatDate(endDate)}`,
+        14,
+        26
+      );
+
+      doc.text(
+        `Department: ${department === "ALL" ? "All Departments" : department}`,
+        14,
+        32
+      );
+
+      doc.text(
+        `Status: ${status === "ALL" ? "All Status" : status}`,
+        14,
+        38
+      );
+
+      doc.text(
+        `Search: ${search.trim() || "All Interns"}`,
+        14,
+        44
+      );
+
+      autoTable(doc, {
+        startY: 51,
+        head: [[
+          "No.",
+          "Intern Name",
+          "Intern Code",
+          "Department",
+          "Date",
+          "Check In",
+          "Check Out",
+          "Duration",
+          "Status",
+        ]],
+        body: allRecords.map((record, index) => [
+          index + 1,
+          record.intern_name,
+          record.intern_code,
+          record.department,
+          formatDate(record.attendance_date),
+          formatTime(record.check_in, "-"),
+          formatTime(record.check_out, "-"),
+          record.duration || formatDuration(record.check_in, record.check_out),
+          record.status,
+        ]),
+        theme: "grid",
+        styles: {
+          fontSize: 9,
+          cellPadding: 3,
+        },
+        headStyles: {
+          fillColor: [37, 99, 235],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+        margin: {
+          left: 14,
+          right: 14,
+        },
+      });
+
+      const safeDate = new Date().toISOString().slice(0, 10);
+      doc.save(`attendance-report-${safeDate}.pdf`);
+    } catch (err) {
+      console.error("Failed to download attendance report:", err);
+      setError("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function downloadCSV() {
+    try {
+      setDownloadingCSV(true);
+      const allRecords = await fetchAllFilteredRecords();
+
+      const headers = [
         "No.",
         "Intern Name",
         "Intern Code",
@@ -311,44 +367,112 @@ async function downloadPDF() {
         "Date",
         "Check In",
         "Check Out",
+        "Duration",
         "Status",
-      ]],
-      body: allRecords.map((record, index) => [
-        index + 1,
-        record.intern_name,
-        record.intern_code,
-        record.department,
-        formatDate(record.attendance_date),
-        formatTime(record.check_in),
-        formatTime(record.check_out),
-        record.status,
-      ]),
-      theme: "grid",
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [37, 99, 235],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      margin: {
-        left: 14,
-        right: 14,
-      },
-    });
+      ];
 
-    const safeDate = new Date().toISOString().slice(0, 10);
+      const csvRows = allRecords.map((record, index) => {
+        const row = [
+          index + 1,
+          `"${record.intern_name.replace(/"/g, '""')}"`,
+          `"${record.intern_code.replace(/"/g, '""')}"`,
+          `"${record.department.replace(/"/g, '""')}"`,
+          formatDate(record.attendance_date),
+          formatTime(record.check_in, "-"),
+          formatTime(record.check_out, "-"),
+          record.duration || formatDuration(record.check_in, record.check_out),
+          record.status,
+        ];
+        return row.join(",");
+      });
 
-    doc.save(`attendance-report-${safeDate}.pdf`);
-  } catch (err) {
-    console.error("Failed to download attendance report:", err);
-    setError("Failed to generate PDF. Please try again.");
-  } finally {
-    setDownloading(false);
+      const csvContent = "\uFEFF" + [headers.join(","), ...csvRows].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const safeDate = new Date().toISOString().slice(0, 10);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `attendance-report-${safeDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download CSV:", err);
+      setError("Failed to generate CSV. Please try again.");
+    } finally {
+      setDownloadingCSV(false);
+    }
   }
-}
+
+  function openCorrectionDialog(record: AttendanceRecord) {
+    setSelectedRecord(record);
+    setEditCheckIn(record.check_in ? formatTime(record.check_in, "") : "");
+    setEditCheckOut(record.check_out ? formatTime(record.check_out, "") : "");
+    setEditStatus(record.status === "NOT_CHECKED_IN" ? "PRESENT" : record.status);
+    setCorrectError("");
+    setCorrectDialogOpen(true);
+  }
+
+  async function handleSaveCorrection(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedRecord) return;
+
+    try {
+      setCorrecting(true);
+      setCorrectError("");
+
+      const dateStr = selectedRecord.attendance_date;
+      const checkInIso = editCheckIn
+        ? new Date(`${dateStr}T${editCheckIn}:00+07:00`).toISOString()
+        : null;
+      const checkOutIso = editCheckOut
+        ? new Date(`${dateStr}T${editCheckOut}:00+07:00`).toISOString()
+        : null;
+
+      await api.patch(`/admin/attendance/${selectedRecord.id}`, {
+        intern_id: selectedRecord.intern_id,
+        attendance_date: dateStr,
+        check_in: checkInIso,
+        check_out: checkOutIso,
+        status: editStatus,
+      });
+
+      setCorrectDialogOpen(false);
+      await fetchAttendance(pagination.page);
+    } catch (err: any) {
+      console.error("Failed to correct attendance:", err);
+      setCorrectError(
+        err.response?.data?.message || "Failed to save correction. Please try again."
+      );
+    } finally {
+      setCorrecting(false);
+    }
+  }
+
+  // Data aggregasi chart harian dari data record tabel saat ini
+  const dailyChartData = useMemo(() => {
+    const map = new Map<string, { date: string; present: number; late: number; absent: number }>();
+    records.forEach((r) => {
+      const dateLabel = formatDate(r.attendance_date);
+      if (!map.has(dateLabel)) {
+        map.set(dateLabel, { date: dateLabel, present: 0, late: 0, absent: 0 });
+      }
+      const entry = map.get(dateLabel)!;
+      if (r.status === "PRESENT") entry.present++;
+      else if (r.status === "LATE") entry.late++;
+      else if (r.status === "ABSENT") entry.absent++;
+    });
+    return Array.from(map.values()).reverse();
+  }, [records]);
+
+  const pieChartData = useMemo(() => {
+    return [
+      { name: "Present", value: summary.present, color: "#16a34a" },
+      { name: "Late", value: summary.late, color: "#eab308" },
+      { name: "Absent", value: summary.absent, color: "#ef4444" },
+    ].filter((item) => item.value > 0);
+  }, [summary]);
 
   return (
     <div className="space-y-6">
@@ -479,48 +603,132 @@ async function downloadPDF() {
                 </SelectContent>
               </Select>
             </div>
-          <div className="flex items-end">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setSearch("");
-                setDepartment("ALL");
-                setStatus("ALL");
-              }}
-              title="Clear filters"
-              aria-label="Clear filters"
-              className="text-red-500 hover:bg-red-50 hover:text-red-600"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+            <div className="flex items-end">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setSearch("");
+                  setDepartment("ALL");
+                  setStatus("ALL");
+                }}
+                title="Clear filters"
+                aria-label="Clear filters"
+                className="text-red-500 hover:bg-red-50 hover:text-red-600"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Visualisasi Tren & Distribusi (Additive Section Recharts) */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Tren Kehadiran Harian
+            </CardTitle>
+            <CardDescription>
+              Jumlah kehadiran harian (Present, Late, Absent) berdasarkan filter aktif
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="h-72">
+            {dailyChartData.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                Belum ada data untuk ditampilkan pada grafik tren.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dailyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
+                  <Bar dataKey="present" name="Present" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="late" name="Late" fill="#eab308" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="absent" name="Absent" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Distribusi Kehadiran
+            </CardTitle>
+            <CardDescription>
+              Proporsi Present, Late, dan Absent periode ini
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="h-72 flex flex-col items-center justify-center">
+            {pieChartData.length === 0 ? (
+              <div className="text-sm text-slate-400">
+                Tidak ada data distribusi kehadiran.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieChartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={75}
+                    innerRadius={45}
+                    paddingAngle={3}
+                  >
+                    {pieChartData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: any) => [`${value} hari`, "Jumlah"]} />
+                  <Legend wrapperStyle={{ fontSize: "12px" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Attendance Table */}
       <Card>
         <CardContent className="p-0">
           <div className="flex flex-col justify-between gap-3 p-5 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="font-semibold">
-            Attendance Records
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Attendance details based on selected filters
-          </p>
-        </div>
+            <div>
+              <h2 className="font-semibold">
+                Attendance Records
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Attendance details based on selected filters
+              </p>
+            </div>
 
-        <Button
-          onClick={downloadPDF}
-          disabled={downloading || loading || pagination.total === 0}
-          size="sm"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          {downloading ? "Generating PDF..." : "Download PDF"}
-        </Button>
-      </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={downloadCSV}
+                disabled={downloadingCSV || loading || pagination.total === 0}
+                size="sm"
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                {downloadingCSV ? "Exporting..." : "Export CSV"}
+              </Button>
+
+              <Button
+                onClick={downloadPDF}
+                disabled={downloading || loading || pagination.total === 0}
+                size="sm"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {downloading ? "Generating PDF..." : "Download PDF"}
+              </Button>
+            </div>
+          </div>
 
           {error && (
             <p className="px-5 pb-4 text-sm text-destructive">
@@ -537,7 +745,9 @@ async function downloadPDF() {
                   <TableHead>Date</TableHead>
                   <TableHead>Check In</TableHead>
                   <TableHead>Check Out</TableHead>
+                  <TableHead>Duration</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -545,7 +755,7 @@ async function downloadPDF() {
                 {loading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={8}
                       className="h-32 text-center text-muted-foreground"
                     >
                       Loading attendance records...
@@ -554,7 +764,7 @@ async function downloadPDF() {
                 ) : records.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={8}
                       className="h-32 text-center text-muted-foreground"
                     >
                       No attendance records found.
@@ -581,29 +791,30 @@ async function downloadPDF() {
                       </TableCell>
 
                       <TableCell>
-                        {record.check_in
-                          ? new Date(record.check_in).toLocaleTimeString("id-ID", {
-                              timeZone: "Asia/Jakarta",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: false,
-                            })
-                          : "-"}
+                        {formatTime(record.check_in, "-")}
                       </TableCell>
 
                       <TableCell>
-                        {record.check_out
-                          ? new Date(record.check_out).toLocaleTimeString("id-ID", {
-                              timeZone: "Asia/Jakarta",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: false,
-                            })
-                          : "-"}
+                        {formatTime(record.check_out, "-")}
+                      </TableCell>
+
+                      <TableCell className="font-mono text-xs">
+                        {record.duration || formatDuration(record.check_in, record.check_out)}
                       </TableCell>
 
                       <TableCell>
                         {getStatusBadge(record.status)}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Correct attendance"
+                          onClick={() => openCorrectionDialog(record)}
+                        >
+                          <Pencil className="h-4 w-4 text-slate-500" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -651,6 +862,77 @@ async function downloadPDF() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog Koreksi Absensi (Requirement 9) */}
+      <Dialog open={correctDialogOpen} onOpenChange={setCorrectDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Koreksi Absensi</DialogTitle>
+            <DialogDescription>
+              Perbaiki catatan waktu check-in atau check-out untuk{" "}
+              <strong>{selectedRecord?.intern_name}</strong> pada tanggal{" "}
+              <strong>{selectedRecord && formatDate(selectedRecord.attendance_date)}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveCorrection} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Jam Check In (HH:mm)</label>
+              <Input
+                type="time"
+                value={editCheckIn}
+                onChange={(e) => setEditCheckIn(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Jam Check Out (HH:mm)</label>
+              <Input
+                type="time"
+                value={editCheckOut}
+                onChange={(e) => setEditCheckOut(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select
+                value={editStatus}
+                onValueChange={(val: any) => setEditStatus(val)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PRESENT">Present</SelectItem>
+                  <SelectItem value="LATE">Late</SelectItem>
+                  <SelectItem value="ABSENT">Absent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {correctError && (
+              <p className="rounded-md bg-red-50 p-2.5 text-xs text-red-600">
+                {correctError}
+              </p>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCorrectDialogOpen(false)}
+                disabled={correcting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={correcting}>
+                {correcting ? "Menyimpan..." : "Simpan Koreksi"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

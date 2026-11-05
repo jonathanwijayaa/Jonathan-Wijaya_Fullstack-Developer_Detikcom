@@ -5,100 +5,109 @@ import {
   LogIn,
   LogOut,
   RefreshCw,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 import api from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type {
   InternProfile,
   TodayAttendance,
   AttendanceRecord,
   DashboardResponse,
 } from "@/types";
+import { formatTime, formatDate, formatDuration } from "@/lib/utils";
 
 const LIMIT = 10;
 
-function formatTime(value: string | null) {
-  if (!value) return "--:--";
-
-  return new Date(value).toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Jakarta",
-  });
-}
-
-function formatDate(value: string) {
-  return new Date(`${value}T00:00:00`).toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 export default function InternDashboard() {
-    const { user } = useAuth();
+  const { user } = useAuth();
   const [profile, setProfile] = useState<InternProfile | null>(null);
   const [today, setToday] = useState<TodayAttendance | null>(null);
 
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [monthFilter, setMonthFilter] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
 
+  // Change password states
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+
+  // Buka otomatis dialog jika user wajib ganti password pertama kali
+  useEffect(() => {
+    if (user?.mustChangePassword) {
+      setPasswordDialogOpen(true);
+    }
+  }, [user]);
+
   const totalPages = Math.ceil(totalRecords / LIMIT);
 
   const fetchDashboard = useCallback(async () => {
     try {
-        setLoading(true);
-        setError("");
+      setLoading(true);
+      setError("");
 
-        const [dashboardResponse, historyResponse] = await Promise.all([
+      const [dashboardResponse, historyResponse] = await Promise.all([
         api.get("/dashboard/intern"),
         api.get("/attendance/me", {
-            params: { page, limit: LIMIT },
+          params: { page, limit: LIMIT, month: monthFilter || undefined },
         }),
-        ]);
+      ]);
 
-        const dashboardData: DashboardResponse =
-        dashboardResponse.data.data;
+      const dashboardData: DashboardResponse = dashboardResponse.data.data;
+      setProfile(dashboardData.profile);
+      setToday(dashboardData.today);
 
-        setProfile(dashboardData.profile);
-        setToday(dashboardData.today);
-
-        // Handle different possible backend response formats
-        const responseData = historyResponse.data.data;
-
-        const attendanceData = Array.isArray(responseData)
+      const responseData = historyResponse.data.data;
+      const attendanceData = Array.isArray(responseData)
         ? responseData
+        : Array.isArray(responseData?.history)
+        ? responseData.history
         : Array.isArray(responseData?.attendances)
-            ? responseData.attendances
-            : Array.isArray(responseData?.records)
-            ? responseData.records
-            : [];
+        ? responseData.attendances
+        : Array.isArray(responseData?.records)
+        ? responseData.records
+        : [];
 
-        setHistory(attendanceData);
+      setHistory(attendanceData);
 
-        // Use pagination metadata if available
-        const total =
+      const total =
         historyResponse.data.pagination?.total ??
         responseData?.pagination?.total ??
         attendanceData.length;
 
-        setTotalRecords(total);
+      setTotalRecords(total);
     } catch (err) {
-        console.error("Failed to fetch intern dashboard:", err);
-        setError("Failed to load dashboard data. Please try again.");
+      console.error("Failed to fetch intern dashboard:", err);
+      setError("Failed to load dashboard data. Please try again.");
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-    }, [page]);
+  }, [page, monthFilter]);
 
   useEffect(() => {
     fetchDashboard();
@@ -131,6 +140,50 @@ export default function InternDashboard() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (newPassword.length < 6) {
+      setPasswordError("Password baru minimal 6 karakter.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Konfirmasi password tidak cocok.");
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+      await api.post("/auth/change-password", { newPassword });
+
+      setPasswordSuccess("Password berhasil diubah!");
+      setNewPassword("");
+      setConfirmPassword("");
+
+      // Update user state di local storage
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        parsed.mustChangePassword = false;
+        localStorage.setItem("user", JSON.stringify(parsed));
+      }
+
+      setTimeout(() => {
+        setPasswordDialogOpen(false);
+        setPasswordSuccess("");
+      }, 1500);
+    } catch (err: any) {
+      setPasswordError(
+        err.response?.data?.message || "Gagal mengubah password. Silakan coba lagi."
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   const hasCheckedIn = Boolean(today?.check_in);
   const hasCheckedOut = Boolean(today?.check_out);
 
@@ -139,25 +192,43 @@ export default function InternDashboard() {
       {/* Dashboard Heading */}
       <Card>
         <CardContent className="p-6">
-            <h2 className="text-xl font-bold text-slate-900">
-            Welcome back, {user?.name || "Intern"}!
-            </h2>
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">
+                Welcome back, {user?.name || "Intern"}!
+              </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
-            Manage your daily attendance and view your attendance history.
-            </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Manage your daily attendance and view your attendance history.
+              </p>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">
-                {profile?.intern_code || "-"}
-            </Badge>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">
+                  {profile?.intern_code || "-"}
+                </Badge>
 
-            <span className="text-sm text-slate-500">
-                {profile?.department || "-"}
-            </span>
+                <span className="text-sm text-slate-500">
+                  {profile?.department || "-"}
+                </span>
+              </div>
             </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setPasswordError("");
+                setPasswordSuccess("");
+                setPasswordDialogOpen(true);
+              }}
+              className="gap-2"
+            >
+              <KeyRound size={16} />
+              Ganti Password
+            </Button>
+          </div>
         </CardContent>
-        </Card>
+      </Card>
 
       {/* Error Message */}
       {error && (
@@ -211,7 +282,7 @@ export default function InternDashboard() {
               </div>
 
               <p className="text-3xl font-bold text-slate-900">
-                {loading ? "..." : formatTime(today?.check_in ?? null)}
+                {loading ? "..." : formatTime(today?.check_in, "--:--")}
               </p>
             </div>
 
@@ -222,7 +293,7 @@ export default function InternDashboard() {
               </div>
 
               <p className="text-3xl font-bold text-slate-900">
-                {loading ? "..." : formatTime(today?.check_out ?? null)}
+                {loading ? "..." : formatTime(today?.check_out, "--:--")}
               </p>
             </div>
           </div>
@@ -275,11 +346,40 @@ export default function InternDashboard() {
 
       {/* Attendance History */}
       <Card>
-        <CardHeader>
-          <CardTitle>Attendance History</CardTitle>
-          <p className="text-sm text-slate-500">
-            Your recent attendance records.
-          </p>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Attendance History</CardTitle>
+            <p className="text-sm text-slate-500">
+              Your recent attendance records.
+            </p>
+          </div>
+
+          {/* Filter Tanggal/Bulan di Sisi Kanan Label Attendance History */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-500">Bulan:</span>
+            <Input
+              type="month"
+              value={monthFilter}
+              onChange={(e) => {
+                setMonthFilter(e.target.value);
+                setPage(1);
+              }}
+              className="h-8 w-36 text-xs"
+            />
+            {monthFilter && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMonthFilter("");
+                  setPage(1);
+                }}
+                className="h-8 px-2 text-xs text-red-500 hover:text-red-700"
+              >
+                Reset
+              </Button>
+            )}
+          </div>
         </CardHeader>
 
         <CardContent>
@@ -290,6 +390,7 @@ export default function InternDashboard() {
                   <th className="pb-3 font-medium">Date</th>
                   <th className="pb-3 font-medium">Check In</th>
                   <th className="pb-3 font-medium">Check Out</th>
+                  <th className="pb-3 font-medium">Duration</th>
                   <th className="pb-3 font-medium">Status</th>
                 </tr>
               </thead>
@@ -297,13 +398,13 @@ export default function InternDashboard() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={4} className="py-8 text-center text-slate-500">
+                    <td colSpan={5} className="py-8 text-center text-slate-500">
                       Loading attendance history...
                     </td>
                   </tr>
                 ) : history.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-8 text-center text-slate-500">
+                    <td colSpan={5} className="py-8 text-center text-slate-500">
                       No attendance records found.
                     </td>
                   </tr>
@@ -318,11 +419,15 @@ export default function InternDashboard() {
                       </td>
 
                       <td className="py-4">
-                        {formatTime(record.check_in)}
+                        {formatTime(record.check_in, "--:--")}
                       </td>
 
                       <td className="py-4">
-                        {formatTime(record.check_out)}
+                        {formatTime(record.check_out, "--:--")}
+                      </td>
+
+                      <td className="py-4 font-mono text-xs">
+                        {record.duration || formatDuration(record.check_in, record.check_out)}
                       </td>
 
                       <td className="py-4">
@@ -378,6 +483,88 @@ export default function InternDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog Ganti Password (Requirement 10) */}
+      <Dialog open={passwordDialogOpen} onOpenChange={(open) => {
+        // Jangan izinkan tutup jika masih dipaksa ganti password pertama kali
+        if (!open && user?.mustChangePassword) return;
+        setPasswordDialogOpen(open);
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {user?.mustChangePassword ? "Wajib Ganti Password" : "Ganti Password"}
+            </DialogTitle>
+            <DialogDescription>
+              {user?.mustChangePassword
+                ? "Akun Anda saat ini menggunakan password default 'intern'. Demi keamanan, Anda wajib membuat password baru sebelum melanjutkan."
+                : "Masukkan password baru minimal 6 karakter."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Password Baru</label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Minimal 6 karakter"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Konfirmasi Password Baru</label>
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Ulangi password baru"
+                required
+              />
+            </div>
+
+            {passwordError && (
+              <p className="rounded-md bg-red-50 p-2.5 text-xs text-red-600">
+                {passwordError}
+              </p>
+            )}
+
+            {passwordSuccess && (
+              <p className="rounded-md bg-green-50 p-2.5 text-xs text-green-700">
+                {passwordSuccess}
+              </p>
+            )}
+
+            <DialogFooter>
+              {!user?.mustChangePassword && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPasswordDialogOpen(false)}
+                  disabled={passwordLoading}
+                >
+                  Batal
+                </Button>
+              )}
+
+              <Button type="submit" disabled={passwordLoading}>
+                {passwordLoading ? "Menyimpan..." : "Simpan Password Baru"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
