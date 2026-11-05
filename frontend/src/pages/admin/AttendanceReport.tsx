@@ -63,6 +63,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatTime, formatDate, formatDuration } from "@/lib/utils";
 
+const PDF_PRIMARY: [number, number, number] = [34, 64, 154];
+const PDF_BACKGROUND: [number, number, number] = [245, 247, 252];
+
 interface AttendanceRecord {
   id: string;
   intern_id: string;
@@ -108,13 +111,13 @@ function getStatusBadge(status: AttendanceRecord["status"]) {
   switch (status) {
     case "PRESENT":
       return (
-        <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+        <Badge className="border border-chart-3/20 bg-chart-3/10 text-chart-3 hover:bg-chart-3/20">
           Present
         </Badge>
       );
     case "LATE":
       return (
-        <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
+        <Badge className="border border-chart-4/20 bg-chart-4/10 text-chart-4 hover:bg-chart-4/20">
           Late
         </Badge>
       );
@@ -334,9 +337,12 @@ export default function AttendanceReport() {
           cellPadding: 3,
         },
         headStyles: {
-          fillColor: [37, 99, 235],
+          fillColor: PDF_PRIMARY,
           textColor: 255,
           fontStyle: "bold",
+        },
+        alternateRowStyles: {
+          fillColor: PDF_BACKGROUND,
         },
         margin: {
           left: 14,
@@ -468,9 +474,9 @@ export default function AttendanceReport() {
 
   const pieChartData = useMemo(() => {
     return [
-      { name: "Present", value: summary.present, color: "#16a34a" },
-      { name: "Late", value: summary.late, color: "#eab308" },
-      { name: "Absent", value: summary.absent, color: "#ef4444" },
+      { name: "Present", value: summary.present, color: "var(--chart-3)" },
+      { name: "Late", value: summary.late, color: "var(--chart-4)" },
+      { name: "Absent", value: summary.absent, color: "var(--chart-5)" },
     ].filter((item) => item.value > 0);
   }, [summary]);
 
@@ -614,7 +620,7 @@ export default function AttendanceReport() {
                 }}
                 title="Clear filters"
                 aria-label="Clear filters"
-                className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -636,7 +642,7 @@ export default function AttendanceReport() {
           </CardHeader>
           <CardContent className="h-72">
             {dailyChartData.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-slate-400">
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                 Belum ada data untuk ditampilkan pada grafik tren.
               </div>
             ) : (
@@ -646,9 +652,9 @@ export default function AttendanceReport() {
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
-                  <Bar dataKey="present" name="Present" fill="#16a34a" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="late" name="Late" fill="#eab308" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="absent" name="Absent" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="present" name="Present" fill="var(--chart-3)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="late" name="Late" fill="var(--chart-4)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="absent" name="Absent" fill="var(--chart-5)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -666,7 +672,7 @@ export default function AttendanceReport() {
           </CardHeader>
           <CardContent className="h-72 flex flex-col items-center justify-center">
             {pieChartData.length === 0 ? (
-              <div className="text-sm text-slate-400">
+              <div className="text-sm text-muted-foreground">
                 Tidak ada data distribusi kehadiran.
               </div>
             ) : (
@@ -813,7 +819,7 @@ export default function AttendanceReport() {
                           title="Correct attendance"
                           onClick={() => openCorrectionDialog(record)}
                         >
-                          <Pencil className="h-4 w-4 text-slate-500" />
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -825,7 +831,7 @@ export default function AttendanceReport() {
 
           {/* Pagination */}
           <div className="mt-4 flex flex-col justify-between gap-3 border-t pt-4 sm:flex-row sm:items-center">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               {pagination.total === 0
                 ? "Showing 0 of 0 records"
                 : `Showing ${(pagination.page - 1) * pagination.limit + 1}–${Math.min(
@@ -912,7 +918,7 @@ export default function AttendanceReport() {
             </div>
 
             {correctError && (
-              <p className="rounded-md bg-red-50 p-2.5 text-xs text-red-600">
+              <p className="rounded-md border border-destructive/20 bg-destructive/10 p-2.5 text-xs text-destructive">
                 {correctError}
               </p>
             )}

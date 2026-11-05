@@ -244,13 +244,13 @@ export default function InternManagement() {
     switch (internStatus) {
       case "ACTIVE":
         return (
-          <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+          <Badge className="border border-chart-3/20 bg-chart-3/10 text-chart-3 hover:bg-chart-3/20">
             Active
           </Badge>
         );
       case "UPCOMING":
         return (
-          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+          <Badge className="border border-primary/20 bg-primary/10 text-primary hover:bg-primary/20">
             Upcoming
           </Badge>
         );
@@ -266,7 +266,7 @@ export default function InternManagement() {
         <CardContent className="p-5">
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search by name or intern code..."
                 value={search}
@@ -336,7 +336,7 @@ export default function InternManagement() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Intern List</CardTitle>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Manage all registered interns.
             </p>
           </div>
@@ -349,7 +349,7 @@ export default function InternManagement() {
 
         <CardContent>
           {error && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -357,7 +357,7 @@ export default function InternManagement() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-slate-500">
+                <tr className="border-b border-border bg-muted/60 text-left text-muted-foreground">
                   <th className="pb-3 font-medium">Intern</th>
                   <th className="pb-3 font-medium">Intern Code</th>
                   <th className="pb-3 font-medium">Department</th>
@@ -370,13 +370,13 @@ export default function InternManagement() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="py-10 text-center text-slate-500">
+                    <td colSpan={6} className="py-10 text-center text-muted-foreground">
                       Loading interns...
                     </td>
                   </tr>
                 ) : interns.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-10 text-center text-slate-500">
+                    <td colSpan={6} className="py-10 text-center text-muted-foreground">
                       No interns found.
                     </td>
                   </tr>
@@ -387,12 +387,12 @@ export default function InternManagement() {
                       : intern.users;
 
                     return (
-                      <tr key={intern.id} className="border-b last:border-0">
+                      <tr key={intern.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                         <td className="py-4">
-                          <p className="font-medium text-slate-900">
+                          <p className="font-medium text-foreground">
                             {user?.name || "-"}
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-muted-foreground">
                             {user?.email || "-"}
                           </p>
                         </td>
@@ -402,7 +402,7 @@ export default function InternManagement() {
 
                         <td className="py-4">
                           <p>{formatDate(intern.start_date)}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-muted-foreground">
                             to {intern.end_date ? formatDate(intern.end_date) : "Ongoing"}
                           </p>
                         </td>
@@ -442,7 +442,7 @@ export default function InternManagement() {
 
           {/* Pagination always visible */}
           <div className="mt-4 flex flex-col justify-between gap-3 border-t pt-4 sm:flex-row sm:items-center">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               {total === 0
                 ? "Showing 0 of 0 interns"
                 : `Showing ${(page - 1) * LIMIT + 1}–${Math.min(
@@ -558,7 +558,7 @@ export default function InternManagement() {
             </div>
 
             {formError && (
-              <p className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+              <p className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
                 {formError}
               </p>
             )}

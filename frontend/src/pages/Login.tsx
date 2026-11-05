@@ -60,19 +60,19 @@ export default function Login() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold tracking-tight">
             Internship Attendance
           </h1>
 
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-muted-foreground">
             Sign in to manage your attendance
           </p>
         </div>
 
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-border">
           <CardHeader>
             <CardTitle>Welcome back</CardTitle>
             <CardDescription>
@@ -86,7 +86,7 @@ export default function Login() {
                 <Label htmlFor="email">Email address</Label>
 
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
                   <Input
                     id="email"
@@ -104,7 +104,7 @@ export default function Login() {
                 <Label htmlFor="password">Password</Label>
 
                 <div className="relative">
-                  <LockKeyhole className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <LockKeyhole className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
                   <Input
                     id="password"
@@ -119,7 +119,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? (
@@ -132,7 +132,7 @@ export default function Login() {
               </div>
 
               {error && (
-                <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+                <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                   {error}
                 </div>
               )}
@@ -148,7 +148,7 @@ export default function Login() {
           </CardContent>
         </Card>
 
-        <p className="mt-6 text-center text-xs text-slate-400">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           Internship Attendance System
         </p>
       </div>
