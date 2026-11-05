@@ -232,14 +232,14 @@ export default function InternDashboard() {
 
       {/* Error Message */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
 
       {/* Success Message */}
       {actionMessage && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+        <div className="rounded-lg border border-chart-3/20 bg-chart-3/10 p-4 text-sm text-chart-3">
           {actionMessage}
         </div>
       )}
@@ -308,11 +308,11 @@ export default function InternDashboard() {
               ) : !hasCheckedIn ? (
                 <Badge variant="secondary">Not Checked In</Badge>
               ) : today?.status === "LATE" ? (
-                <Badge className="bg-amber-100 text-amber-800 border border-amber-200">
+                <Badge className="border border-chart-4/20 bg-chart-4/10 text-chart-4">
                   Late
                 </Badge>
               ) : (
-                <Badge className="bg-green-100 text-green-800 border border-green-200">
+                <Badge className="border border-chart-3/20 bg-chart-3/10 text-chart-3">
                   Present
                 </Badge>
               )}
@@ -433,11 +433,11 @@ export default function InternDashboard() {
 
                       <td className="px-4 py-3.5">
                         {record.status === "LATE" ? (
-                          <span className="rounded-full px-2.5 py-0.5 text-xs font-medium border bg-amber-100 text-amber-800 border-amber-200">
+                          <span className="rounded-full border border-chart-4/20 bg-chart-4/10 px-2.5 py-0.5 text-xs font-medium text-chart-4">
                             Late
                           </span>
                         ) : (
-                          <span className="rounded-full px-2.5 py-0.5 text-xs font-medium border bg-green-100 text-green-800 border-green-200">
+                          <span className="rounded-full border border-chart-3/20 bg-chart-3/10 px-2.5 py-0.5 text-xs font-medium text-chart-3">
                             Present
                           </span>
                         )}
@@ -540,13 +540,13 @@ export default function InternDashboard() {
             </div>
 
             {passwordError && (
-              <p className="rounded-md bg-red-50 p-2.5 text-xs text-red-600">
+              <p className="rounded-md border border-destructive/20 bg-destructive/10 p-2.5 text-xs text-destructive">
                 {passwordError}
               </p>
             )}
 
             {passwordSuccess && (
-              <p className="rounded-md bg-green-50 p-2.5 text-xs text-green-700">
+              <p className="rounded-md border border-chart-3/20 bg-chart-3/10 p-2.5 text-xs text-chart-3">
                 {passwordSuccess}
               </p>
             )}

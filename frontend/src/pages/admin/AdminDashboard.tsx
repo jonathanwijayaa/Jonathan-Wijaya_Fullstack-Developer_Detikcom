@@ -195,7 +195,7 @@ export default function AdminDashboard() {
 
       {/* Error Message */}
       {error && (
-        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
           <button
             onClick={fetchDashboard}
@@ -301,8 +301,8 @@ export default function AdminDashboard() {
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-xs font-medium border ${
                             attendance.status === "LATE"
-                              ? "bg-amber-100 text-amber-800 border-amber-200"
-                              : "bg-green-100 text-green-800 border-green-200"
+                              ? "bg-chart-4/10 text-chart-4 border-chart-4/20"
+                              : "bg-chart-3/10 text-chart-3 border-chart-3/20"
                           }`}
                         >
                           {attendance.status}
@@ -469,8 +469,8 @@ export default function AdminDashboard() {
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs font-medium border ${
                               item.status === "LATE"
-                                ? "bg-amber-100 text-amber-800 border-amber-200"
-                                : "bg-green-100 text-green-800 border-green-200"
+                                ? "bg-chart-4/10 text-chart-4 border-chart-4/20"
+                                : "bg-chart-3/10 text-chart-3 border-chart-3/20"
                             }`}
                           >
                             {item.status}
