@@ -15,17 +15,71 @@ function getTodayDate() {
 async function getAdminDashboard(_req, res) {
     try {
         const today = getTodayDate();
-        const { count: totalInterns, error: internError } = await supabase_1.supabaseAdmin
+        // Ambil semua intern beserta relasi profil user
+        const { data: interns, error: internError } = await supabase_1.supabaseAdmin
             .from("interns")
-            .select("*", { count: "exact", head: true });
+            .select(`
+          id,
+          intern_code,
+          department,
+          start_date,
+          end_date,
+          users (
+            name,
+            email
+          )
+        `);
         if (internError)
             throw internError;
+        const totalInterns = interns?.length || 0;
+        // Ambil seluruh data absensi hari ini
         const { data: attendance, error: attendanceError } = await supabase_1.supabaseAdmin
             .from("attendances")
-            .select("status")
+            .select("id, intern_id, check_in, check_out, status")
             .eq("attendance_date", today);
         if (attendanceError)
             throw attendanceError;
+        const attendanceMap = new Map();
+        (attendance || []).forEach((item) => {
+            attendanceMap.set(item.intern_id, item);
+        });
+        // Intern yang aktif hari ini
+        const activeInterns = (interns || []).filter((intern) => {
+            const isStarted = !intern.start_date || intern.start_date <= today;
+            const isNotEnded = !intern.end_date || intern.end_date >= today;
+            return isStarted && isNotEnded;
+        });
+        const unattendedInterns = [];
+        const notCheckedOutInterns = [];
+        activeInterns.forEach((intern) => {
+            const user = Array.isArray(intern.users)
+                ? intern.users[0]
+                : intern.users;
+            const record = attendanceMap.get(intern.id);
+            if (!record || !record.check_in) {
+                // Belum check-in hari ini
+                unattendedInterns.push({
+                    id: intern.id,
+                    intern_code: intern.intern_code,
+                    department: intern.department,
+                    name: user?.name || "Unknown",
+                    email: user?.email || "-",
+                });
+            }
+            else if (record.check_in && !record.check_out) {
+                // Sudah check-in tapi belum check-out
+                notCheckedOutInterns.push({
+                    id: intern.id,
+                    attendance_id: record.id,
+                    intern_code: intern.intern_code,
+                    department: intern.department,
+                    name: user?.name || "Unknown",
+                    email: user?.email || "-",
+                    check_in: record.check_in,
+                    status: record.status,
+                });
+            }
+        });
         const present = attendance?.filter((item) => item.status === "PRESENT").length || 0;
         const late = attendance?.filter((item) => item.status === "LATE").length || 0;
         const totalAttendance = attendance?.length || 0;
@@ -33,13 +87,15 @@ async function getAdminDashboard(_req, res) {
             success: true,
             message: "Admin dashboard retrieved successfully",
             data: {
-                totalInterns: totalInterns || 0,
+                totalInterns,
                 today: {
                     totalAttendance,
                     present,
                     late,
-                    notCheckedIn: Math.max(0, (totalInterns || 0) - totalAttendance),
+                    notCheckedIn: unattendedInterns.length,
                 },
+                unattendedInterns,
+                notCheckedOutInterns,
             },
         });
     }

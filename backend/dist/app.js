@@ -16,7 +16,10 @@ app.use((req, _res, next) => {
     next();
 });
 app.use((0, cors_1.default)({
-    origin: "http://localhost:5173",
+    origin: [
+        "http://localhost:5173",
+        "https://jonathan-wijaya-fullstack-developer.vercel.app",
+    ],
     credentials: true,
 }));
 app.use(express_1.default.json());
@@ -37,6 +40,12 @@ app.get("/api/health", (_req, res) => {
     res.json({
         success: true,
         message: "Attendance API is running!",
+    });
+});
+app.get("/", (_req, res) => {
+    res.json({
+        message: "Detikcom Attendance API is running",
+        status: "OK",
     });
 });
 exports.default = app;

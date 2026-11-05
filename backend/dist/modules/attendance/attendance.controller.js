@@ -5,14 +5,11 @@ exports.checkOut = checkOut;
 exports.getMyAttendance = getMyAttendance;
 exports.getAllAttendance = getAllAttendance;
 exports.getAttendanceReport = getAttendanceReport;
+exports.correctAttendance = correctAttendance;
 const supabase_1 = require("../../config/supabase");
+const attendance_util_1 = require("../../utils/attendance.util");
 function getAttendanceDate() {
-    return new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Jakarta",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-    }).format(new Date());
+    return (0, attendance_util_1.getJakartaDate)();
 }
 async function getInternId(user) {
     const { data, error } = await supabase_1.supabaseAdmin
@@ -37,13 +34,14 @@ async function checkIn(req, res) {
             });
         }
         const now = new Date();
+        const attendanceStatus = (0, attendance_util_1.determineAttendanceStatus)(now);
         const { data, error } = await supabase_1.supabaseAdmin
             .from("attendances")
             .insert({
             intern_id: internId,
             attendance_date: getAttendanceDate(),
             check_in: now.toISOString(),
-            status: "PRESENT",
+            status: attendanceStatus,
         })
             .select()
             .single();
@@ -159,6 +157,9 @@ async function getMyAttendance(req, res) {
             });
         }
         const today = getAttendanceDate();
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const limit = Math.max(1, Number(req.query.limit) || 10);
+        const month = typeof req.query.month === "string" ? req.query.month.trim() : "";
         // Get today's attendance
         const { data: todayAttendance, error: todayError } = await supabase_1.supabaseAdmin
             .from("attendances")
@@ -173,13 +174,21 @@ async function getMyAttendance(req, res) {
                 message: "Failed to retrieve today's attendance",
             });
         }
-        // Get attendance history
-        const { data: history, error: historyError } = await supabase_1.supabaseAdmin
+        // Get attendance history with pagination and month filter
+        let historyQuery = supabase_1.supabaseAdmin
             .from("attendances")
-            .select("*")
-            .eq("intern_id", internId)
+            .select("*", { count: "exact" })
+            .eq("intern_id", internId);
+        if (month && /^\d{4}-\d{2}$/.test(month)) {
+            historyQuery = historyQuery
+                .gte("attendance_date", `${month}-01`)
+                .lte("attendance_date", `${month}-31`);
+        }
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+        const { data: history, count: totalCount, error: historyError } = await historyQuery
             .order("attendance_date", { ascending: false })
-            .limit(30);
+            .range(from, to);
         if (historyError) {
             console.error("Attendance history error:", historyError);
             return res.status(500).json({
@@ -187,12 +196,30 @@ async function getMyAttendance(req, res) {
                 message: "Failed to retrieve attendance history",
             });
         }
+        const total = totalCount ?? (history?.length || 0);
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        const historyWithDuration = (history || []).map((item) => ({
+            ...item,
+            duration: (0, attendance_util_1.calculateWorkDuration)(item.check_in, item.check_out),
+        }));
         return res.status(200).json({
             success: true,
             message: "Attendance retrieved successfully",
             data: {
                 today: todayAttendance,
-                history: history || [],
+                history: historyWithDuration,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages,
+                },
+            },
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages,
             },
         });
     }
@@ -254,11 +281,15 @@ async function getAllAttendance(req, res) {
                 message: "Failed to retrieve attendance reports",
             });
         }
+        const recordsWithDuration = (data || []).map((item) => ({
+            ...item,
+            duration: (0, attendance_util_1.calculateWorkDuration)(item.check_in, item.check_out),
+        }));
         return res.status(200).json({
             success: true,
             message: "Attendance reports retrieved successfully",
-            data,
-            total: data.length,
+            data: recordsWithDuration,
+            total: recordsWithDuration.length,
         });
     }
     catch (error) {
@@ -277,20 +308,6 @@ function getReportDateRange() {
         startDate: `${year}-${month}-01`,
         endDate: `${year}-${month}-${String(lastDay).padStart(2, "0")}`,
     };
-}
-function getReportWorkingDays(start, end) {
-    const dates = [];
-    const current = new Date(`${start}T00:00:00.000Z`);
-    const last = new Date(`${end}T00:00:00.000Z`);
-    while (current <= last) {
-        const day = current.getUTCDay();
-        // Monday - Friday
-        if (day !== 0 && day !== 6) {
-            dates.push(current.toISOString().slice(0, 10));
-        }
-        current.setUTCDate(current.getUTCDate() + 1);
-    }
-    return dates;
 }
 // GET /api/admin/attendance/report
 async function getAttendanceReport(req, res) {
@@ -324,7 +341,7 @@ async function getAttendanceReport(req, res) {
                 message: "Invalid date range",
             });
         }
-        if (status && !["PRESENT", "LATE", "ABSENT"].includes(status)) {
+        if (status && !["PRESENT", "LATE", "ABSENT", "NOT_CHECKED_IN"].includes(status)) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid attendance status",
@@ -405,20 +422,28 @@ async function getAttendanceReport(req, res) {
             // Skip interns whose active period has not started yet
             if (activeStart > activeEnd)
                 continue;
-            const workingDays = getReportWorkingDays(activeStart, activeEnd);
+            const workingDays = (0, attendance_util_1.getWorkingDaysInRange)(activeStart, activeEnd);
             for (const date of workingDays) {
                 const attendance = attendanceMap.get(`${intern.id}_${date}`);
-                const rowStatus = attendance?.status === "PRESENT"
-                    ? "PRESENT"
-                    : attendance?.status === "LATE"
-                        ? "LATE"
-                        : "ABSENT";
-                if (rowStatus === "PRESENT")
+                const isToday = date === today;
+                let rowStatus;
+                if (attendance?.status === "PRESENT") {
+                    rowStatus = "PRESENT";
                     presentCount++;
-                else if (rowStatus === "LATE")
+                }
+                else if (attendance?.status === "LATE") {
+                    rowStatus = "LATE";
                     lateCount++;
-                else
+                }
+                else if (isToday) {
+                    rowStatus = "NOT_CHECKED_IN";
+                    // Hari berjalan belum check-in tidak dihitung sebagai absent
+                }
+                else {
+                    rowStatus = "ABSENT";
                     absentCount++;
+                }
+                const duration = (0, attendance_util_1.calculateWorkDuration)(attendance?.check_in, attendance?.check_out);
                 rows.push({
                     id: attendance?.id ?? `${intern.id}_${date}`,
                     intern_id: intern.id,
@@ -429,6 +454,7 @@ async function getAttendanceReport(req, res) {
                     attendance_date: date,
                     check_in: attendance?.check_in ?? null,
                     check_out: attendance?.check_out ?? null,
+                    duration,
                     status: rowStatus,
                 });
             }
@@ -436,10 +462,7 @@ async function getAttendanceReport(req, res) {
         // Sort newest attendance first
         rows.sort((a, b) => b.attendance_date.localeCompare(a.attendance_date));
         // Summary is calculated before status filtering
-        const totalExpected = presentCount + lateCount + absentCount;
-        const attendanceRate = totalExpected > 0
-            ? Number((((presentCount + lateCount) / totalExpected) * 100).toFixed(1))
-            : 0;
+        const attendanceRate = (0, attendance_util_1.calculateAttendanceRate)(presentCount, lateCount, absentCount);
         // Apply status filter to table only
         const filteredRows = status
             ? rows.filter((row) => row.status === status)
@@ -486,6 +509,66 @@ async function getAttendanceReport(req, res) {
         return res.status(500).json({
             success: false,
             message: "Failed to retrieve attendance report",
+        });
+    }
+}
+// PATCH /api/admin/attendance/:id (Koreksi absensi oleh admin)
+async function correctAttendance(req, res) {
+    try {
+        const id = String(req.params.id || "");
+        const { check_in, check_out, status, intern_id, attendance_date } = req.body;
+        // Jika ID adalah compound internId_date (virtual absent row), kita buat baris baru
+        if (id.includes("_") || (!id && intern_id && attendance_date)) {
+            const [parsedInternId, parsedDate] = id.includes("_")
+                ? id.split("_")
+                : [intern_id, attendance_date];
+            const { data: inserted, error: insertError } = await supabase_1.supabaseAdmin
+                .from("attendances")
+                .insert({
+                intern_id: parsedInternId,
+                attendance_date: parsedDate,
+                check_in: check_in || null,
+                check_out: check_out || null,
+                status: status || "PRESENT",
+            })
+                .select()
+                .single();
+            if (insertError) {
+                throw insertError;
+            }
+            return res.status(201).json({
+                success: true,
+                message: "Attendance record created successfully",
+                data: inserted,
+            });
+        }
+        const updatePayload = {};
+        if (check_in !== undefined)
+            updatePayload.check_in = check_in;
+        if (check_out !== undefined)
+            updatePayload.check_out = check_out;
+        if (status !== undefined)
+            updatePayload.status = status;
+        const { data, error } = await supabase_1.supabaseAdmin
+            .from("attendances")
+            .update(updatePayload)
+            .eq("id", id)
+            .select()
+            .single();
+        if (error) {
+            throw error;
+        }
+        return res.status(200).json({
+            success: true,
+            message: "Attendance corrected successfully",
+            data,
+        });
+    }
+    catch (error) {
+        console.error("Correct attendance error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to correct attendance record",
         });
     }
 }
